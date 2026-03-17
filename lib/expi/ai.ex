@@ -49,31 +49,7 @@ defmodule ExpiAi.AI do
   """
   @spec get_model(provider(), model_id()) :: {:ok, Model.t()} | {:error, atom()}
   def get_model(provider, model_id) do
-    # Stub implementation - will be implemented in Phase 2
-    case {provider, model_id} do
-      {"anthropic", "claude-opus-4-5"} ->
-        {:ok, %Model{
-          id: "claude-opus-4-5",
-          name: "Claude Opus 4.5",
-          api: "anthropic-messages",
-          provider: "anthropic",
-          base_url: "https://api.anthropic.com",
-          reasoning: true,
-          input: ["text", "image"],
-          cost: %ExpiAi.Types.Cost{
-            input: 15.0,
-            output: 75.0,
-            cache_read: 0.0,
-            cache_write: 0.0
-          },
-          context_window: 200_000,
-          max_tokens: 4096,
-          headers: %{},
-          compat: %{}
-        }}
-      _ ->
-        {:error, :model_not_found}
-    end
+    ExpiAi.ModelRegistry.get_model(provider, model_id)
   end
 
   @doc """

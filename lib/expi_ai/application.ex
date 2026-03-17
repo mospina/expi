@@ -13,6 +13,7 @@ defmodule ExpiAi.Application do
   @spec start(Application.start_type(), term()) :: {:ok, pid()} | {:error, term()}
   def start(_type, _args) do
     children = [
+      {ExpiAi.ModelRegistry, []},
       # Future: Add HTTP connection pool supervisor here
       # Future: Add telemetry supervisor here
     ]

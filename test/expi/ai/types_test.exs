@@ -10,7 +10,6 @@ defmodule ExpiAi.TypesTest do
     TextContent,
     ThinkingContent,
     ToolCall,
-    ToolResultMessage,
     Usage,
     UserMessage
   }
