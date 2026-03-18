@@ -1,0 +1,290 @@
+defmodule ExpiAi.Providers.Anthropic do
+  @moduledoc """
+  Anthropic Claude API provider implementation.
+  Supports Claude models with reasoning/thinking capabilities.
+  """
+
+  alias ExpiAi.AI.HttpClient
+  alias ExpiAi.AI.Auth
+  alias ExpiAi.Providers.Base
+  alias ExpiAi.Types.{
+    AssistantMessage,
+    Context,
+    ImageContent,
+    Model,
+    TextContent,
+    ThinkingContent,
+    ToolCall,
+    Usage,
+    UserMessage
+  }
+
+  @default_options %{
+    max_tokens: 4096,
+    temperature: 0.7
+  }
+
+  @doc """
+  Completes a conversation using Anthropic's API.
+  """
+  @spec complete(Model.t(), Context.t(), map()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
+  def complete(model, context, options \\ %{}) do
+    with :ok <- Base.validate_model(model),
+         :ok <- Base.validate_context(context),
+         :ok <- Base.validate_options(options),
+         {:ok, payload} <- build_request_payload(model, context, options),
+         {:ok, headers} <- prepare_request_headers(model),
+         {:ok, response} <- make_api_request(model, payload, headers),
+         {:ok, message} <- parse_response(response) do
+      {:ok, message}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Builds the request payload for Anthropic's Messages API.
+  """
+  @spec build_request_payload(Model.t(), Context.t(), map()) :: {:ok, map()} | {:error, atom()}
+  def build_request_payload(model, context, options) do
+    merged_options = Base.merge_default_options(@default_options, options)
+    
+    messages = format_anthropic_messages(context.messages)
+
+    payload = %{
+      model: model.id,
+      messages: messages,
+      max_tokens: merged_options.max_tokens,
+      temperature: merged_options.temperature
+    }
+
+    payload = maybe_add_system_prompt(payload, context.system_prompt)
+    payload = maybe_add_tools(payload, context.tools)
+    payload = maybe_add_reasoning(payload, merged_options)
+
+    {:ok, payload}
+  end
+
+  @doc """
+  Parses Anthropic API response into AssistantMessage.
+  """
+  @spec parse_response(map()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
+  def parse_response(%{"type" => "error", "error" => error}) do
+    case error["type"] do
+      "invalid_request_error" -> {:error, :bad_request}
+      "authentication_error" -> {:error, :unauthorized}
+      "permission_error" -> {:error, :forbidden}
+      "not_found_error" -> {:error, :not_found}
+      "rate_limit_error" -> {:error, :rate_limited}
+      "api_error" -> {:error, :server_error}
+      _ -> {:error, :unknown_error}
+    end
+  end
+
+  def parse_response(%{"content" => content, "usage" => usage, "model" => model_id} = response) do
+    parsed_content = parse_content_blocks(content)
+    usage_struct = parse_usage(usage)
+    stop_reason = parse_stop_reason(response["stop_reason"])
+
+    message = %AssistantMessage{
+      role: :assistant,
+      content: parsed_content,
+      api: "anthropic-messages",
+      provider: "anthropic",
+      model: model_id,
+      usage: usage_struct,
+      stop_reason: stop_reason,
+      timestamp: System.system_time(:millisecond)
+    }
+
+    {:ok, message}
+  end
+
+  def parse_response(_), do: {:error, :invalid_response}
+
+  @doc """
+  Maps HTTP status codes to error atoms.
+  """
+  @spec map_http_error(integer()) :: atom()
+  def map_http_error(400), do: :bad_request
+  def map_http_error(401), do: :unauthorized
+  def map_http_error(403), do: :forbidden
+  def map_http_error(404), do: :not_found
+  def map_http_error(429), do: :rate_limited
+  def map_http_error(500), do: :server_error
+  def map_http_error(503), do: :service_unavailable
+  def map_http_error(_), do: :unknown_error
+
+  @doc """
+  Formats error messages for better user experience.
+  """
+  @spec format_error(atom(), String.t()) :: String.t()
+  def format_error(:rate_limited, message), do: "Rate limit exceeded: #{message}"
+  def format_error(:unauthorized, _), do: "Invalid API key or authentication failed"
+  def format_error(:quota_exceeded, message), do: "Quota exceeded: #{message}"
+  def format_error(:server_error, _), do: "Anthropic API server error"
+  def format_error(reason, message), do: "API error (#{reason}): #{message}"
+
+  # Private helper functions
+
+  defp prepare_request_headers(model) do
+    case Auth.get_api_key("anthropic") do
+      {:ok, api_key} ->
+        headers = [
+          {"x-api-key", api_key},
+          {"anthropic-version", "2023-06-01"}
+        ]
+        {:ok, Base.prepare_headers(model, headers)}
+      {:error, reason} -> 
+        {:error, reason}
+    end
+  end
+
+  defp make_api_request(model, payload, headers) do
+    url = "#{model.base_url}/v1/messages"
+    body = Jason.encode!(payload)
+
+    case HttpClient.post(url, body, headers) do
+      {:ok, %{status: 200, body: response_body}} ->
+        Base.parse_json_safely(response_body)
+      {:ok, %{status: status, body: body}} ->
+        case Base.parse_json_safely(body) do
+          {:ok, error_response} -> {:error, {status, error_response}}
+          {:error, _} -> Base.handle_http_error(status, body)
+        end
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp format_anthropic_messages(messages) do
+    Enum.map(messages, &format_anthropic_message/1)
+  end
+
+  defp format_anthropic_message(%UserMessage{role: :user, content: content}) when is_binary(content) do
+    %{"role" => "user", "content" => content}
+  end
+
+  defp format_anthropic_message(%UserMessage{role: :user, content: content}) when is_list(content) do
+    formatted_content = Enum.map(content, &format_content_block/1)
+    %{"role" => "user", "content" => formatted_content}
+  end
+
+  defp format_anthropic_message(%AssistantMessage{role: :assistant, content: content}) do
+    text = Base.extract_text_content(content)
+    %{"role" => "assistant", "content" => text}
+  end
+
+  defp format_content_block(%TextContent{type: :text, text: text}) do
+    %{"type" => "text", "text" => text}
+  end
+
+  defp format_content_block(%ImageContent{type: :image, data: data, mime_type: mime_type}) do
+    %{
+      "type" => "image",
+      "source" => %{
+        "type" => "base64",
+        "media_type" => mime_type,
+        "data" => data
+      }
+    }
+  end
+
+  defp format_content_block(content), do: content
+
+  defp maybe_add_system_prompt(payload, nil), do: payload
+  defp maybe_add_system_prompt(payload, ""), do: payload
+  defp maybe_add_system_prompt(payload, system_prompt) do
+    Map.put(payload, :system, system_prompt)
+  end
+
+  defp maybe_add_tools(payload, nil), do: payload
+  defp maybe_add_tools(payload, []), do: payload
+  defp maybe_add_tools(payload, tools) do
+    formatted_tools = Enum.map(tools, &format_tool/1)
+    Map.put(payload, :tools, formatted_tools)
+  end
+
+  defp format_tool(%{name: name, description: desc, input_schema: schema}) do
+    %{
+      name: name,
+      description: desc,
+      input_schema: schema
+    }
+  end
+
+  defp maybe_add_reasoning(payload, %{reasoning: reasoning}) when reasoning in ["high", "medium", "low"] do
+    Map.put(payload, :reasoning, reasoning)
+  end
+  defp maybe_add_reasoning(payload, _), do: payload
+
+  defp parse_content_blocks(content) when is_list(content) do
+    Enum.map(content, &parse_content_block/1)
+  end
+
+  defp parse_content_block(%{"type" => "text", "text" => text}) do
+    %TextContent{type: :text, text: text}
+  end
+
+  defp parse_content_block(%{"type" => "thinking", "thinking" => thinking}) do
+    %ThinkingContent{type: :thinking, thinking: thinking}
+  end
+
+  defp parse_content_block(%{"type" => "tool_use", "id" => id, "name" => name, "input" => input}) do
+    %ToolCall{type: :tool_call, id: id, name: name, arguments: input}
+  end
+
+  defp parse_content_block(block), do: block
+
+  defp parse_usage(%{
+    "input_tokens" => input,
+    "output_tokens" => output,
+    "cache_creation_input_tokens" => cache_write,
+    "cache_read_input_tokens" => cache_read
+  }) do
+    total = input + output
+
+    %Usage{
+      input: input,
+      output: output,
+      cache_read: cache_read,
+      cache_write: cache_write,
+      total_tokens: total,
+      cost: calculate_usage_cost(input, output, cache_read, cache_write)
+    }
+  end
+
+  defp parse_usage(%{"input_tokens" => input, "output_tokens" => output}) do
+    total = input + output
+
+    %Usage{
+      input: input,
+      output: output,
+      cache_read: 0,
+      cache_write: 0,
+      total_tokens: total,
+      cost: calculate_usage_cost(input, output, 0, 0)
+    }
+  end
+
+  defp calculate_usage_cost(input, output, cache_read, cache_write) do
+    # Using default Anthropic pricing - this would be model-specific in real implementation
+    input_cost = input * 15.0 / 1_000_000
+    output_cost = output * 75.0 / 1_000_000
+    cache_read_cost = cache_read * 0.15 / 1_000_000
+    cache_write_cost = cache_write * 18.75 / 1_000_000
+
+    %ExpiAi.Types.Cost{
+      input: input_cost,
+      output: output_cost,
+      cache_read: cache_read_cost,
+      cache_write: cache_write_cost
+    }
+  end
+
+  defp parse_stop_reason("end_turn"), do: :stop
+  defp parse_stop_reason("max_tokens"), do: :max_tokens
+  defp parse_stop_reason("stop_sequence"), do: :stop_sequence
+  defp parse_stop_reason("tool_use"), do: :tool_calls
+  defp parse_stop_reason(_), do: :unknown
+end

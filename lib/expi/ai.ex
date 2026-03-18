@@ -63,9 +63,32 @@ defmodule ExpiAi.AI do
       {:ok, %ExpiAi.Types.AssistantMessage{...}}
   """
   @spec complete_simple(Model.t(), Context.t()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
-  def complete_simple(_model, _context) do
-    # Stub implementation - will be implemented in Phase 3
-    {:error, :not_implemented}
+  @spec complete_simple(Model.t(), Context.t(), map()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
+  
+  def complete_simple(model, context), do: complete_simple(model, context, %{})
+
+  def complete_simple(nil, _context, _options) do
+    {:error, :invalid_model}
+  end
+
+  def complete_simple(_model, nil, _options) do
+    {:error, :invalid_context}
+  end
+
+  def complete_simple(%Model{provider: "anthropic"} = model, context, options) do
+    ExpiAi.Providers.Anthropic.complete(model, context, options)
+  end
+
+  def complete_simple(%Model{provider: "google"} = model, context, options) do
+    ExpiAi.Providers.Gemini.complete(model, context, options)
+  end
+
+  def complete_simple(%Model{provider: "ollama"} = model, context, options) do
+    ExpiAi.Providers.Ollama.complete(model, context, options)
+  end
+
+  def complete_simple(%Model{provider: provider}, _context, _options) do
+    {:error, {:unsupported_provider, provider}}
   end
 
   @doc """

@@ -126,7 +126,10 @@ defmodule ExpiAi.AITest do
         tools: nil
       }
 
-      assert {:error, :not_implemented} = AI.complete_simple(model, context)
+      case AI.complete_simple(model, context) do
+        {:error, reason} when reason in [:not_implemented, :missing_api_key] -> :ok
+        other -> flunk("Expected error, got: #{inspect(other)}")
+      end
     end
 
     test "accepts valid model and context parameters" do
@@ -147,7 +150,10 @@ defmodule ExpiAi.AITest do
       }
 
       # Should accept the parameters without error (though return not_implemented)
-      assert {:error, :not_implemented} = AI.complete_simple(model, context)
+      case AI.complete_simple(model, context) do
+        {:error, reason} when reason in [:not_implemented, :missing_api_key] -> :ok
+        other -> flunk("Expected error, got: #{inspect(other)}")
+      end
     end
 
     test "function signature matches expected type spec" do
