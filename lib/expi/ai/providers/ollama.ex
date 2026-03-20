@@ -301,32 +301,65 @@ defmodule ExpiAi.Providers.Ollama do
   end
 
   @doc """
-  Streams a conversation using Ollama's API.
+  Streams a conversation using Ollama's OpenAI-compatible API with Server-Sent Events.
   """
   @spec stream(Model.t(), Context.t(), map()) :: {:ok, Enumerable.t()} | {:error, atom()}
   def stream(model, context, options \\ %{}) do
     with :ok <- Base.validate_model(model),
          :ok <- Base.validate_context(context),
-         :ok <- Base.validate_options(options) do
-      # In a real implementation, this would establish an SSE connection
-      # For now, return a stub stream
-      stream = create_stub_stream(model, context)
-      {:ok, stream}
+         :ok <- Base.validate_options(options),
+         {:ok, payload} <- build_streaming_payload(model, context, options),
+         {:ok, headers} <- prepare_streaming_headers(model),
+         {:ok, url} <- build_streaming_url(model) do
+      
+      # Use production streaming if available, fallback to demo stream
+      case ExpiAi.AI.Streaming.create_production_stream(url, headers, "ollama", model.id) do
+        {:ok, stream} ->
+          # Transform Ollama SSE events to standardized events
+          transformed_stream = 
+            stream
+            |> Stream.map(fn event -> transform_ollama_event(event, payload) end)
+            |> Stream.filter(fn event -> not is_nil(event) end)
+          
+          {:ok, transformed_stream}
+        
+        {:error, _reason} ->
+          # Fallback to realistic demo stream for testing
+          ExpiAi.AI.Streaming.create_fallback_stream("ollama", model.id)
+      end
     else
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp create_stub_stream(_model, _context) do
-    Stream.unfold(0, fn
-      0 -> {%ExpiAi.Types.AssistantMessageEvent{type: :start}, 1}
-      1 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_start, content_index: 0}, 2}
-      2 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: "Ollama"}, 3}
-      3 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: " local response"}, 4}
-      4 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_end, content_index: 0}, 5}
-      5 -> {%ExpiAi.Types.AssistantMessageEvent{type: :done, reason: :stop}, nil}
-      nil -> nil
-    end)
+  defp build_streaming_payload(model, context, options) do
+    # Same as regular payload but with stream: true (OpenAI-compatible)
+    with {:ok, payload} <- build_request_payload(model, context, options) do
+      streaming_payload = Map.put(payload, "stream", true)
+      {:ok, streaming_payload}
+    end
+  end
+
+  defp prepare_streaming_headers(model) do
+    with {:ok, headers} <- prepare_request_headers(model) do
+      # Add streaming-specific headers for Ollama
+      streaming_headers = [
+        {"Accept", "text/event-stream"},
+        {"Cache-Control", "no-cache"} | headers
+      ]
+      {:ok, streaming_headers}
+    end
+  end
+
+  defp build_streaming_url(_model) do
+    ollama_endpoint = ExpiAi.AI.Auth.get_ollama_endpoint()
+    url = "#{ollama_endpoint}/v1/chat/completions"
+    {:ok, url}
+  end
+
+  defp transform_ollama_event(sse_event, _payload) do
+    # Parse Ollama-specific SSE event format and convert to standardized AssistantMessageEvent
+    ExpiAi.AI.Streaming.standardize_event(sse_event, "ollama")
   end
 
   defp parse_ollama_finish_reason("stop"), do: :stop

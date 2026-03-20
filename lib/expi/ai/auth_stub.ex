@@ -69,6 +69,15 @@ defmodule ExpiAi.AI.Auth do
     end
   end
 
+  @doc """
+  Gets the Ollama endpoint URL from environment or config.
+  """
+  @spec get_ollama_endpoint() :: String.t()
+  def get_ollama_endpoint do
+    System.get_env("OLLAMA_ENDPOINT") || 
+      Application.get_env(:expi_ai, :ollama_endpoint, "http://localhost:11434")
+  end
+
   # Private functions
 
   defp get_key_with_fallback(env_var, config_key) do
@@ -117,10 +126,5 @@ defmodule ExpiAi.AI.Auth do
       {:error, :connection_refused} -> {:error, :ollama_not_running}
       {:error, _} -> {:error, :connection_failed}
     end
-  end
-
-  defp get_ollama_endpoint do
-    System.get_env("OLLAMA_ENDPOINT") || 
-      Application.get_env(:expi_ai, :ollama_endpoint, "http://localhost:11434")
   end
 end
