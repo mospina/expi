@@ -1,4 +1,4 @@
-defmodule ExpiAi.HttpClient do
+defmodule Expi.HttpClient do
   @moduledoc """
   HTTP client wrapper with connection pooling and JSON handling.
   
@@ -6,8 +6,8 @@ defmodule ExpiAi.HttpClient do
   JSON encoding/decoding and error handling.
   """
 
-  alias ExpiAi.Config
-  alias ExpiAi.Types.Model
+  alias Expi.Config
+  alias Expi.Types.Model
 
   @doc """
   Performs a POST request with JSON body.
@@ -96,7 +96,7 @@ defmodule ExpiAi.HttpClient do
   def default_headers do
     [
       {"Content-Type", "application/json"},
-      {"User-Agent", "ExpiAi/0.1.0"}
+      {"User-Agent", "Expi/0.1.0"}
     ]
   end
 
@@ -162,7 +162,7 @@ defmodule ExpiAi.HttpClient do
     [
       timeout: Config.http_timeout(),
       recv_timeout: Config.http_recv_timeout(),
-      hackney: [pool: :expi_ai_pool]
+      hackney: [pool: :expi_pool]
     ]
   end
 

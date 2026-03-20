@@ -19,7 +19,7 @@ This guide provides comprehensive integration instructions for ExpiAI with real-
 # mix.exs
 def deps do
   [
-    {:expi_ai, "~> 0.1.0"},
+    {:expi, "~> 0.1.0"},
     {:jason, "~> 1.4"},      # For JSON handling
     {:httpoison, "~> 2.0"},  # HTTP client
     {:telemetry, "~> 1.0"}   # Monitoring
@@ -33,7 +33,7 @@ end
 # config/config.exs
 import Config
 
-config :expi_ai,
+config :expi,
   log_level: :info,
   http_timeout: 60_000,
   max_retries: 3,
@@ -58,7 +58,7 @@ Add to your supervision tree:
 def start(_type, _args) do
   children = [
     # ... your existing children
-    {ExpiAi.Application, []}
+    {Expi.Application, []}
   ]
 
   opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -76,10 +76,10 @@ end
 export ANTHROPIC_API_KEY="sk-ant-api03-..."
 
 # Test connection
-alias ExpiAi.AI
+alias Expi.AI
 
 {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")
-# => {:ok, %ExpiAi.Types.Model{...}}
+# => {:ok, %Expi.Types.Model{...}}
 ```
 
 Available Claude models:
@@ -95,7 +95,7 @@ export GOOGLE_API_KEY="AI..."
 
 # Test connection  
 {:ok, model} = AI.get_model("google", "gemini-pro")
-# => {:ok, %ExpiAi.Types.Model{...}}
+# => {:ok, %Expi.Types.Model{...}}
 ```
 
 Available Gemini models:
@@ -117,7 +117,7 @@ curl http://localhost:11434/api/tags
 ```elixir
 # Test local connection
 {:ok, model} = AI.get_model("ollama", "llama3.1:8b") 
-# => {:ok, %ExpiAi.Types.Model{...}}
+# => {:ok, %Expi.Types.Model{...}}
 ```
 
 ## Basic Integration Patterns
@@ -126,8 +126,8 @@ curl http://localhost:11434/api/tags
 
 ```elixir
 defmodule MyApp.ChatService do
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
 
   def chat(provider, model_id, message, system_prompt \\ nil) do
     with {:ok, model} <- AI.get_model(provider, model_id),
@@ -154,7 +154,7 @@ defmodule MyApp.ChatService do
 
   defp extract_content(response) do
     case response.content do
-      [%ExpiAi.Types.TextContent{text: text} | _] -> text
+      [%Expi.Types.TextContent{text: text} | _] -> text
       [] -> ""
       text when is_binary(text) -> text
     end
@@ -174,8 +174,8 @@ end
 
 ```elixir
 defmodule MyApp.StreamingChat do
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
 
   def stream_chat(provider, model_id, message, callback_fn) do
     with {:ok, model} <- AI.get_model(provider, model_id),
@@ -230,8 +230,8 @@ end
 
 ```elixir
 defmodule MyApp.DocumentAnalyzer do
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage, TextContent, ImageContent}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage, TextContent, ImageContent}
 
   def analyze_document(image_data, media_type, question) do
     with {:ok, model} <- AI.get_model("google", "gemini-pro-vision"),
@@ -288,8 +288,8 @@ end
 
 ```elixir
 defmodule MyApp.AIAssistant do
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage, Tool}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage, Tool}
 
   def assist_with_tools(message) do
     tools = define_tools()
@@ -385,7 +385,7 @@ defmodule MyApp.AIAssistant do
 
   defp extract_content(response) do
     case response.content do
-      [%ExpiAi.Types.TextContent{text: text} | _] -> text
+      [%Expi.Types.TextContent{text: text} | _] -> text
       [] -> ""
       text when is_binary(text) -> text
     end
@@ -413,8 +413,8 @@ IO.inspect(result.tool_results)
 defmodule MyApp.ConversationManager do
   use GenServer
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage, AssistantMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage, AssistantMessage}
 
   # Client API
   
@@ -531,7 +531,7 @@ IO.puts("Conversation cost: $#{cost}")
 
 ```elixir
 defmodule MyApp.AIService do
-  alias ExpiAi.AI
+  alias Expi.AI
   require Logger
 
   def safe_completion(provider, model_id, message, retries \\ 3) do
@@ -587,9 +587,9 @@ defmodule MyApp.AIService do
   end
 
   defp build_context(message) do
-    %ExpiAi.Types.Context{
+    %Expi.Types.Context{
       messages: [
-        %ExpiAi.Types.UserMessage{
+        %Expi.Types.UserMessage{
           role: :user,
           content: message,
           timestamp: System.system_time(:millisecond)
@@ -628,7 +628,7 @@ end
 
 ```elixir
 # config/prod.exs
-config :expi_ai,
+config :expi,
   http_pools: [
     ai_pool: [
       timeout: 30_000,
@@ -659,16 +659,16 @@ defmodule MyApp.AIMonitor do
     :telemetry.attach_many(
       "ai-monitoring",
       [
-        [:expi_ai, :request, :stop],
-        [:expi_ai, :request, :error],
-        [:expi_ai, :cost, :tracking]
+        [:expi, :request, :stop],
+        [:expi, :request, :error],
+        [:expi, :cost, :tracking]
       ],
       &handle_telemetry/4,
       %{}
     )
   end
 
-  defp handle_telemetry([:expi_ai, :request, :stop], measurements, metadata, _config) do
+  defp handle_telemetry([:expi, :request, :stop], measurements, metadata, _config) do
     # Track successful requests
     :telemetry.execute([:my_app, :ai, :success], measurements, metadata)
     
@@ -681,7 +681,7 @@ defmodule MyApp.AIMonitor do
     end
   end
 
-  defp handle_telemetry([:expi_ai, :request, :error], measurements, metadata, _config) do
+  defp handle_telemetry([:expi, :request, :error], measurements, metadata, _config) do
     # Track errors
     :telemetry.execute([:my_app, :ai, :error], measurements, metadata)
     
@@ -693,7 +693,7 @@ defmodule MyApp.AIMonitor do
     )
   end
 
-  defp handle_telemetry([:expi_ai, :cost, :tracking], measurements, metadata, _config) do
+  defp handle_telemetry([:expi, :cost, :tracking], measurements, metadata, _config) do
     # Track costs
     daily_cost = get_daily_cost() + measurements.total_cost
     
@@ -812,7 +812,7 @@ end
 
 # Usage
 result = MyApp.AICircuitBreaker.call_ai(fn ->
-  ExpiAi.AI.complete_simple(model, context)
+  Expi.AI.complete_simple(model, context)
 end)
 ```
 

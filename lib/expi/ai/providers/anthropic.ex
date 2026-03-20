@@ -1,13 +1,13 @@
-defmodule ExpiAi.Providers.Anthropic do
+defmodule Expi.Providers.Anthropic do
   @moduledoc """
   Anthropic Claude API provider implementation.
   Supports Claude models with reasoning/thinking capabilities.
   """
 
-  alias ExpiAi.AI.HttpClient
-  alias ExpiAi.AI.Auth
-  alias ExpiAi.Providers.Base
-  alias ExpiAi.Types.{
+  alias Expi.AI.HttpClient
+  alias Expi.AI.Auth
+  alias Expi.Providers.Base
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     ImageContent,
@@ -275,7 +275,7 @@ defmodule ExpiAi.Providers.Anthropic do
     cache_read_cost = cache_read * 0.15 / 1_000_000
     cache_write_cost = cache_write * 18.75 / 1_000_000
 
-    %ExpiAi.Types.Cost{
+    %Expi.Types.Cost{
       input: input_cost,
       output: output_cost,
       cache_read: cache_read_cost,
@@ -296,7 +296,7 @@ defmodule ExpiAi.Providers.Anthropic do
          {:ok, url} <- build_streaming_url(model) do
       
       # Use production streaming if available, fallback to demo stream
-      case ExpiAi.AI.Streaming.create_production_stream(url, headers, "anthropic", model.id) do
+      case Expi.AI.Streaming.create_production_stream(url, headers, "anthropic", model.id) do
         {:ok, stream} ->
           # Transform Anthropic SSE events to standardized events
           transformed_stream = 
@@ -308,7 +308,7 @@ defmodule ExpiAi.Providers.Anthropic do
         
         {:error, _reason} ->
           # Fallback to realistic demo stream for testing
-          ExpiAi.AI.Streaming.create_fallback_stream("anthropic", model.id)
+          Expi.AI.Streaming.create_fallback_stream("anthropic", model.id)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -342,7 +342,7 @@ defmodule ExpiAi.Providers.Anthropic do
 
   defp transform_anthropic_event(sse_event, _payload) do
     # Parse Anthropic-specific SSE event format and convert to standardized AssistantMessageEvent
-    ExpiAi.AI.Streaming.standardize_event(sse_event, "anthropic")
+    Expi.AI.Streaming.standardize_event(sse_event, "anthropic")
   end
 
   defp parse_stop_reason("end_turn"), do: :stop

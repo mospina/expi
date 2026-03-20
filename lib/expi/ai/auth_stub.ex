@@ -1,4 +1,4 @@
-defmodule ExpiAi.AI.Auth do
+defmodule Expi.AI.Auth do
   @moduledoc """
   Production authentication module for AI providers.
   Handles API key management from environment variables and application config.
@@ -75,7 +75,7 @@ defmodule ExpiAi.AI.Auth do
   @spec get_ollama_endpoint() :: String.t()
   def get_ollama_endpoint do
     System.get_env("OLLAMA_ENDPOINT") || 
-      Application.get_env(:expi_ai, :ollama_endpoint, "http://localhost:11434")
+      Application.get_env(:expi, :ollama_endpoint, "http://localhost:11434")
   end
 
   # Private functions
@@ -83,7 +83,7 @@ defmodule ExpiAi.AI.Auth do
   defp get_key_with_fallback(env_var, config_key) do
     # Try environment variable first, then application config
     System.get_env(env_var) ||
-      Application.get_env(:expi_ai, :api_keys, %{})[config_key]
+      Application.get_env(:expi, :api_keys, %{})[config_key]
   end
 
   defp build_auth_headers("anthropic", api_key) do
@@ -120,7 +120,7 @@ defmodule ExpiAi.AI.Auth do
   defp validate_ollama_connection do
     ollama_url = get_ollama_endpoint()
     
-    case ExpiAi.AI.HttpClient.get("#{ollama_url}/api/tags", []) do
+    case Expi.AI.HttpClient.get("#{ollama_url}/api/tags", []) do
       {:ok, %{status: 200}} -> {:ok, :valid}
       {:ok, %{status: _}} -> {:error, :connection_failed}
       {:error, :connection_refused} -> {:error, :ollama_not_running}

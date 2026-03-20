@@ -1,8 +1,8 @@
-defmodule ExpiAi.ModelRegistryTest do
+defmodule Expi.ModelRegistryTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.ModelRegistry
-  alias ExpiAi.Types.{Cost, Model}
+  alias Expi.ModelRegistry
+  alias Expi.Types.{Cost, Model}
 
   describe "get_model/2" do
     test "returns Claude Opus 4.5 model" do

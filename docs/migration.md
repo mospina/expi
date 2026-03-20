@@ -33,11 +33,11 @@ In development, ExpiAI uses stub implementations for testing. For production:
 
 ```elixir
 # Development (automatic stub detection)
-config :expi_ai,
+config :expi,
   use_stubs: true  # This is set automatically in test environment
 
 # Production (real implementations)
-config :expi_ai,
+config :expi,
   use_stubs: false,  # Explicitly disable stubs
   
   # Connection pooling
@@ -86,7 +86,7 @@ LOG_LEVEL="info"
 # config/prod.exs
 import Config
 
-config :expi_ai,
+config :expi,
   log_level: :info,
   
   # Production timeouts
@@ -138,7 +138,7 @@ if config_env() == :prod do
   |> Enum.filter(fn {_k, v} -> not is_nil(v) and v != "" end)
   |> Enum.into(%{})
 
-  config :expi_ai,
+  config :expi,
     api_keys: api_keys,
     
     # Provider endpoints
@@ -163,7 +163,7 @@ end
 **❌ Don't do this:**
 ```elixir
 # Never hardcode API keys
-config :expi_ai,
+config :expi,
   api_keys: %{
     anthropic: "sk-ant-api03-hardcoded-key"  # NEVER DO THIS
   }
@@ -172,7 +172,7 @@ config :expi_ai,
 **✅ Do this:**
 ```elixir
 # Use environment variables
-config :expi_ai,
+config :expi,
   api_keys: %{
     anthropic: System.get_env("ANTHROPIC_API_KEY"),
     google: System.get_env("GOOGLE_API_KEY")
@@ -187,10 +187,10 @@ Set up key rotation with zero downtime:
 defmodule MyApp.KeyRotation do
   def rotate_api_key(provider, new_key) do
     # Update runtime configuration
-    current_keys = Application.get_env(:expi_ai, :api_keys, %{})
+    current_keys = Application.get_env(:expi, :api_keys, %{})
     updated_keys = Map.put(current_keys, String.to_atom(provider), new_key)
     
-    Application.put_env(:expi_ai, :api_keys, updated_keys)
+    Application.put_env(:expi, :api_keys, updated_keys)
     
     # Test the new key
     case test_key(provider, new_key) do
@@ -200,7 +200,7 @@ defmodule MyApp.KeyRotation do
       
       {:error, reason} ->
         # Rollback
-        Application.put_env(:expi_ai, :api_keys, current_keys)
+        Application.put_env(:expi, :api_keys, current_keys)
         Logger.error("Key rotation failed for #{provider}: #{reason}")
         {:error, :rotation_failed}
     end
@@ -209,11 +209,11 @@ defmodule MyApp.KeyRotation do
   defp test_key(provider, key) do
     # Test with a minimal request
     try do
-      {:ok, model} = ExpiAi.AI.get_model(provider, get_test_model(provider))
+      {:ok, model} = Expi.AI.get_model(provider, get_test_model(provider))
       
-      context = %ExpiAi.Types.Context{
+      context = %Expi.Types.Context{
         messages: [
-          %ExpiAi.Types.UserMessage{
+          %Expi.Types.UserMessage{
             role: :user,
             content: "test",
             timestamp: System.system_time(:millisecond)
@@ -221,7 +221,7 @@ defmodule MyApp.KeyRotation do
         ]
       }
       
-      case ExpiAi.AI.complete_simple(model, context) do
+      case Expi.AI.complete_simple(model, context) do
         {:ok, _} -> :ok
         {:error, reason} -> {:error, reason}
       end
@@ -254,7 +254,7 @@ defmodule MyApp.Application do
 
   defp validate_api_keys do
     required_keys = Application.get_env(:my_app, :required_providers, [])
-    api_keys = Application.get_env(:expi_ai, :api_keys, %{})
+    api_keys = Application.get_env(:expi, :api_keys, %{})
     
     missing_keys = 
       required_keys
@@ -273,7 +273,7 @@ defmodule MyApp.Application do
     children = [
       # Your application's children
       {MyApp.Supervisor, []},
-      {ExpiAi.Application, []}
+      {Expi.Application, []}
     ]
 
     opts = [strategy: :one_for_one, name: MyApp.Supervisor]
@@ -290,21 +290,21 @@ Based on your application load:
 
 ```elixir
 # Low traffic (< 100 requests/hour)
-config :expi_ai,
+config :expi,
   http_pools: [
     ai_pool: [max_connections: 10, pool_size: 5],
     ai_stream_pool: [max_connections: 5, pool_size: 3]
   ]
 
 # Medium traffic (100-1000 requests/hour)  
-config :expi_ai,
+config :expi,
   http_pools: [
     ai_pool: [max_connections: 50, pool_size: 25],
     ai_stream_pool: [max_connections: 25, pool_size: 10]
   ]
 
 # High traffic (> 1000 requests/hour)
-config :expi_ai,
+config :expi,
   http_pools: [
     ai_pool: [max_connections: 200, pool_size: 100],
     ai_stream_pool: [max_connections: 100, pool_size: 50]
@@ -316,7 +316,7 @@ config :expi_ai,
 Adjust timeouts based on your use case:
 
 ```elixir
-config :expi_ai,
+config :expi,
   # Quick responses (chat, simple queries)
   http_timeout: 30_000,        # 30 seconds
   http_recv_timeout: 60_000,   # 1 minute
@@ -335,7 +335,7 @@ config :expi_ai,
 Configure retries for your reliability needs:
 
 ```elixir
-config :expi_ai,
+config :expi,
   # Conservative (low cost, high reliability)
   max_retries: 3,
   base_retry_delay: 1000,
@@ -386,7 +386,7 @@ end
 # Usage with caching
 defmodule MyApp.CachedAI do
   alias MyApp.{Repo, AICache}
-  alias ExpiAi.AI
+  alias Expi.AI
   
   def cached_complete(model, context, opts \\ []) do
     cache_key = generate_cache_key(model, context, opts)
@@ -450,7 +450,7 @@ defmodule MyApp.AIWorker do
   def handle_cast({:complete, model, context, callback_pid}, state) do
     # Handle request in separate process to isolate memory
     Task.start(fn ->
-      result = ExpiAi.AI.complete_simple(model, context)
+      result = Expi.AI.complete_simple(model, context)
       send(callback_pid, {:ai_result, result})
     end)
     
@@ -498,22 +498,22 @@ defmodule MyApp.Telemetry do
   def metrics do
     [
       # AI Request metrics
-      counter("expi_ai.request.stop.count", tags: [:provider, :model_id]),
-      distribution("expi_ai.request.stop.duration", 
+      counter("expi.request.stop.count", tags: [:provider, :model_id]),
+      distribution("expi.request.stop.duration", 
         unit: {:native, :millisecond},
         tags: [:provider, :model_id]
       ),
       
       # Token usage
-      distribution("expi_ai.tokens.usage.total_tokens", tags: [:provider, :model_id]),
-      sum("expi_ai.cost.tracking.total_cost", tags: [:provider, :model_id]),
+      distribution("expi.tokens.usage.total_tokens", tags: [:provider, :model_id]),
+      sum("expi.cost.tracking.total_cost", tags: [:provider, :model_id]),
       
       # Error metrics
-      counter("expi_ai.request.error.count", tags: [:provider, :error_type]),
+      counter("expi.request.error.count", tags: [:provider, :error_type]),
       
       # Streaming metrics
-      counter("expi_ai.stream.event.count", tags: [:provider, :event_type]),
-      distribution("expi_ai.stream.session.duration", 
+      counter("expi.stream.event.count", tags: [:provider, :event_type]),
+      distribution("expi.stream.session.duration", 
         unit: {:native, :millisecond},
         tags: [:provider]
       ),
@@ -521,15 +521,15 @@ defmodule MyApp.Telemetry do
       # System metrics
       last_value("vm.memory.total", unit: {:byte, :megabyte}),
       last_value("vm.total_run_queue_lengths.total"),
-      distribution("expi_ai.http.pool_stats.in_use_count", tags: [:pool])
+      distribution("expi.http.pool_stats.in_use_count", tags: [:pool])
     ]
   end
 
   defp periodic_measurements do
     [
-      {ExpiAi.AI.Telemetry, :collect_http_metrics, []},
-      {ExpiAi.AI.Telemetry, :collect_token_metrics, []},
-      {ExpiAi.AI.Telemetry, :collect_cost_metrics, []},
+      {Expi.AI.Telemetry, :collect_http_metrics, []},
+      {Expi.AI.Telemetry, :collect_token_metrics, []},
+      {Expi.AI.Telemetry, :collect_cost_metrics, []},
       {:vm, :memory},
       {:vm, :total_run_queue_lengths}
     ]
@@ -540,9 +540,9 @@ end
 :telemetry.attach_many(
   "my-app-ai-metrics",
   [
-    [:expi_ai, :request, :stop],
-    [:expi_ai, :request, :error],
-    [:expi_ai, :cost, :tracking]
+    [:expi, :request, :stop],
+    [:expi, :request, :error],
+    [:expi, :cost, :tracking]
   ],
   &MyApp.Telemetry.handle_event/4,
   %{}
@@ -561,15 +561,15 @@ defmodule MyApp.Alerting do
     :telemetry.attach_many(
       "ai-alerts",
       [
-        [:expi_ai, :request, :error],
-        [:expi_ai, :cost, :tracking]
+        [:expi, :request, :error],
+        [:expi, :cost, :tracking]
       ],
       &handle_alert/4,
       %{}
     )
   end
 
-  def handle_alert([:expi_ai, :request, :error], _measurements, metadata, _config) do
+  def handle_alert([:expi, :request, :error], _measurements, metadata, _config) do
     case metadata.error_type do
       :rate_limited ->
         Logger.warn("Rate limit hit for #{metadata.provider}")
@@ -585,7 +585,7 @@ defmodule MyApp.Alerting do
     end
   end
 
-  def handle_alert([:expi_ai, :cost, :tracking], measurements, metadata, _config) do
+  def handle_alert([:expi, :cost, :tracking], measurements, metadata, _config) do
     daily_cost = get_daily_cost()
     
     cond do
@@ -637,7 +637,7 @@ end
 1. **Read the Changelog**: Always check `CHANGELOG.md` for breaking changes
 2. **Test in Staging**: Never upgrade directly in production
 3. **Backup Configuration**: Save current configs before upgrading
-4. **Update Dependencies**: Use `mix deps.update expi_ai`
+4. **Update Dependencies**: Use `mix deps.update expi`
 5. **Run Tests**: Ensure all tests pass with new version
 6. **Deploy Gradually**: Use blue-green or rolling deployments
 
@@ -645,11 +645,11 @@ end
 
 ```elixir
 # Before (0.1.x)
-{:ok, response} = ExpiAi.AI.complete_simple(model, context)
+{:ok, response} = Expi.AI.complete_simple(model, context)
 content = response.content
 
 # After (0.2.x) - hypothetical breaking change
-{:ok, response} = ExpiAi.AI.complete_simple(model, context)
+{:ok, response} = Expi.AI.complete_simple(model, context)
 content = response.message.content
 ```
 
@@ -687,14 +687,14 @@ end
 content = response["choices"] |> hd() |> get_in(["message", "content"])
 
 # After (ExpiAI)
-{:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
-context = %ExpiAi.Types.Context{messages: convert_messages(messages)}
-{:ok, response} = ExpiAi.AI.complete_simple(model, context)
+{:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
+context = %Expi.Types.Context{messages: convert_messages(messages)}
+{:ok, response} = Expi.AI.complete_simple(model, context)
 content = extract_text_content(response.content)
 
 defp convert_messages(openai_messages) do
   Enum.map(openai_messages, fn msg ->
-    %ExpiAi.Types.UserMessage{
+    %Expi.Types.UserMessage{
       role: String.to_atom(msg["role"]),
       content: msg["content"],
       timestamp: System.system_time(:millisecond)
@@ -722,11 +722,11 @@ end
 # After (ExpiAI)
 defmodule MyApp.AnthropicClient do
   def complete(prompt) do
-    {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
+    {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
     
-    context = %ExpiAi.Types.Context{
+    context = %Expi.Types.Context{
       messages: [
-        %ExpiAi.Types.UserMessage{
+        %Expi.Types.UserMessage{
           role: :user,
           content: prompt,
           timestamp: System.system_time(:millisecond)
@@ -734,7 +734,7 @@ defmodule MyApp.AnthropicClient do
       ]
     }
     
-    ExpiAi.AI.complete_simple(model, context)
+    Expi.AI.complete_simple(model, context)
   end
 end
 ```
@@ -750,8 +750,8 @@ defmodule MyApp.AIAdapter do
   Provides familiar interfaces while using ExpiAI under the hood.
   """
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
   
   def chat_completion(opts) do
     # OpenAI-style interface

@@ -1,8 +1,8 @@
-defmodule ExpiAi.Providers.AnthropicTest do
+defmodule Expi.Providers.AnthropicTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.Providers.Anthropic
-  alias ExpiAi.Types.{
+  alias Expi.Providers.Anthropic
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     Model,
@@ -22,7 +22,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
       base_url: "https://api.anthropic.com",
       reasoning: true,
       input: ["text", "image"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 15.0,
         output: 75.0,
         cache_read: 0.15,
@@ -93,8 +93,8 @@ defmodule ExpiAi.Providers.AnthropicTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "What's in this image?"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "What's in this image?"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
@@ -196,7 +196,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 18,
-              cost: %ExpiAi.Types.Cost{input: 0.01, output: 0.02, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{input: 0.01, output: 0.02, cache_read: 0.0, cache_write: 0.0}
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 500
@@ -321,8 +321,8 @@ defmodule ExpiAi.Providers.AnthropicTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "Describe this"},
-              %ExpiAi.Types.ImageContent{type: :image, data: "base64data", mime_type: "image/png"}
+              %Expi.Types.TextContent{type: :text, text: "Describe this"},
+              %Expi.Types.ImageContent{type: :image, data: "base64data", mime_type: "image/png"}
             ],
             timestamp: System.system_time(:millisecond)
           }

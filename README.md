@@ -1,9 +1,9 @@
-# ExpiAI - Elixir AI Module
+# Expi - Elixir AI Module
 
-[![Hex.pm](https://img.shields.io/hexpm/v/expi_ai.svg)](https://hex.pm/packages/expi_ai)
-[![Documentation](https://img.shields.io/badge/docs-hexdocs.pm-blue.svg)](https://hexdocs.pm/expi_ai)
-[![CI](https://img.shields.io/github/workflow/status/expi/expi_ai/CI)](https://github.com/expi/expi_ai/actions)
-[![Coverage](https://img.shields.io/coveralls/github/expi/expi_ai.svg)](https://coveralls.io/github/expi/expi_ai)
+[![Hex.pm](https://img.shields.io/hexpm/v/expi.svg)](https://hex.pm/packages/expi)
+[![Documentation](https://img.shields.io/badge/docs-hexdocs.pm-blue.svg)](https://hexdocs.pm/expi)
+[![CI](https://img.shields.io/github/workflow/status/expi/expi/CI)](https://github.com/expi/expi/actions)
+[![Coverage](https://img.shields.io/coveralls/github/expi/expi.svg)](https://coveralls.io/github/expi/expi)
 
 A production-ready Elixir module for interfacing with Large Language Models (LLMs), supporting **Anthropic Claude**, **Google Gemini**, and **Ollama** providers with comprehensive streaming, multi-modal, and tool calling capabilities.
 
@@ -21,12 +21,12 @@ A production-ready Elixir module for interfacing with Large Language Models (LLM
 
 ## 🚀 Quick Start
 
-Add ExpiAI to your dependencies:
+Add Expi to your dependencies:
 
 ```elixir
 def deps do
   [
-    {:expi_ai, "~> 0.1.0"}
+    {:expi, "~> 0.1.0"}
   ]
 end
 ```
@@ -49,8 +49,8 @@ export OLLAMA_ENDPOINT="http://localhost:11434"
 ### Basic Usage
 
 ```elixir
-alias ExpiAi.AI
-alias ExpiAi.Types.{Context, UserMessage}
+alias Expi.AI
+alias Expi.Types.{Context, UserMessage}
 
 # Get a model
 {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")
@@ -115,7 +115,7 @@ end)
 ### Multi-Modal Input (Images + Text)
 
 ```elixir
-alias ExpiAi.Types.{ImageContent, TextContent}
+alias Expi.Types.{ImageContent, TextContent}
 
 # Vision model for image analysis
 {:ok, vision_model} = AI.get_model("google", "gemini-pro-vision")
@@ -146,7 +146,7 @@ context = %Context{
 ### Tool/Function Calling
 
 ```elixir
-alias ExpiAi.Types.Tool
+alias Expi.Types.Tool
 
 # Define tools
 search_tool = %Tool{
@@ -251,7 +251,7 @@ ExpiAI includes comprehensive telemetry integration:
 # Attach custom telemetry handlers
 :telemetry.attach(
   "my-ai-metrics",
-  [:expi_ai, :request, :stop],
+  [:expi, :request, :stop],
   fn _event, measurements, metadata, _config ->
     Logger.info("Request completed",
       provider: metadata.provider,
@@ -267,13 +267,13 @@ ExpiAI includes comprehensive telemetry integration:
 
 ### Available Telemetry Events
 
-- `[:expi_ai, :request, :start]` - Request started
-- `[:expi_ai, :request, :stop]` - Request completed
-- `[:expi_ai, :request, :error]` - Request failed  
-- `[:expi_ai, :tokens, :usage]` - Token usage metrics
-- `[:expi_ai, :cost, :tracking]` - Cost tracking
-- `[:expi_ai, :stream, :event]` - Streaming event
-- `[:expi_ai, :stream, :session]` - Streaming session completed
+- `[:expi, :request, :start]` - Request started
+- `[:expi, :request, :stop]` - Request completed
+- `[:expi, :request, :error]` - Request failed  
+- `[:expi, :tokens, :usage]` - Token usage metrics
+- `[:expi, :cost, :tracking]` - Cost tracking
+- `[:expi, :stream, :event]` - Streaming event
+- `[:expi, :stream, :session]` - Streaming session completed
 
 ## ⚡ Performance & Production
 
@@ -283,7 +283,7 @@ ExpiAI uses optimized connection pooling:
 
 ```elixir
 # config/prod.exs
-config :expi_ai,
+config :expi,
   http_pools: [
     ai_pool: [
       timeout: 30_000,
@@ -375,7 +375,7 @@ mix test --include benchmark
 
 ```elixir
 # config/dev.exs
-config :expi_ai,
+config :expi,
   log_level: :debug,
   http_timeout: 60_000,
   max_retries: 3,
@@ -386,7 +386,7 @@ config :expi_ai,
 
 ```elixir
 # config/prod.exs
-config :expi_ai,
+config :expi,
   log_level: :info,
   http_timeout: 120_000,
   max_retries: 5,
@@ -405,7 +405,7 @@ config :expi_ai,
 ```elixir
 # config/runtime.exs
 if config_env() == :prod do
-  config :expi_ai,
+  config :expi,
     api_keys: %{
       anthropic: System.get_env("ANTHROPIC_API_KEY"),
       google: System.get_env("GOOGLE_API_KEY"),
@@ -419,7 +419,7 @@ end
 
 ## 📖 Documentation
 
-- [API Reference](https://hexdocs.pm/expi_ai)
+- [API Reference](https://hexdocs.pm/expi)
 - [Integration Guide](docs/integration_guide.md)
 - [Provider Details](docs/providers.md)
 - [Streaming Guide](docs/streaming.md)
@@ -443,9 +443,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/expi/expi_ai)
-- [Hex Package](https://hex.pm/packages/expi_ai)
-- [Documentation](https://hexdocs.pm/expi_ai)
+- [GitHub Repository](https://github.com/expi/expi)
+- [Hex Package](https://hex.pm/packages/expi)
+- [Documentation](https://hexdocs.pm/expi)
 - [Changelog](CHANGELOG.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 

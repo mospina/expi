@@ -1,7 +1,7 @@
 import Config
 
 # Test environment configuration
-config :expi_ai,
+config :expi,
   # Use test API keys
   anthropic_api_key: "test_anthropic_key",
   gemini_api_key: "test_gemini_key",

@@ -1,10 +1,10 @@
-defmodule ExpiAi.AI.Streaming do
+defmodule Expi.AI.Streaming do
   @moduledoc """
   Streaming support for AI providers.
   Handles Server-Sent Events (SSE) and real-time response processing.
   """
 
-  alias ExpiAi.Types.{
+  alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
     Context,
@@ -19,15 +19,15 @@ defmodule ExpiAi.AI.Streaming do
   """
   @spec stream_events(Model.t(), Context.t(), map()) :: {:ok, Enumerable.t()} | {:error, atom()}
   def stream_events(%Model{provider: "anthropic"} = model, context, options) do
-    ExpiAi.Providers.Anthropic.stream(model, context, options)
+    Expi.Providers.Anthropic.stream(model, context, options)
   end
 
   def stream_events(%Model{provider: "google"} = model, context, options) do
-    ExpiAi.Providers.Gemini.stream(model, context, options)
+    Expi.Providers.Gemini.stream(model, context, options)
   end
 
   def stream_events(%Model{provider: "ollama"} = model, context, options) do
-    ExpiAi.Providers.Ollama.stream(model, context, options)
+    Expi.Providers.Ollama.stream(model, context, options)
   end
 
   def stream_events(%Model{provider: provider}, _context, _options) do
@@ -47,7 +47,7 @@ defmodule ExpiAi.AI.Streaming do
   """
   @spec create_production_stream(String.t(), list(), String.t(), String.t()) :: {:ok, Enumerable.t()} | {:error, atom()}
   def create_production_stream(url, headers, provider, model_id) do
-    case ExpiAi.AI.HttpClient.get_stream(url, headers) do
+    case Expi.AI.HttpClient.get_stream(url, headers) do
       {:ok, http_stream} ->
         event_stream = 
           http_stream
@@ -81,7 +81,7 @@ defmodule ExpiAi.AI.Streaming do
           api: "streaming",
           provider: provider,
           model: model_id,
-          usage: %ExpiAi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %ExpiAi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Expi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
           stop_reason: nil,
           error_message: nil,
           timestamp: System.system_time(:millisecond)
@@ -116,7 +116,7 @@ defmodule ExpiAi.AI.Streaming do
           api: "streaming",
           provider: provider,
           model: model_id,
-          usage: %ExpiAi.Types.Usage{input: 20, output: 15, cache_read: 0, cache_write: 0, total_tokens: 35, cost: %ExpiAi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Expi.Types.Usage{input: 20, output: 15, cache_read: 0, cache_write: 0, total_tokens: 35, cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
           stop_reason: :stop,
           error_message: nil,
           timestamp: System.system_time(:millisecond)
@@ -499,7 +499,7 @@ defmodule ExpiAi.AI.Streaming do
       api: "streaming",
       provider: provider,
       model: model_id,
-      usage: %ExpiAi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %ExpiAi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+      usage: %Expi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
       stop_reason: nil,
       error_message: nil,
       
@@ -523,7 +523,7 @@ defmodule ExpiAi.AI.Streaming do
     stream
     |> Stream.map(fn event ->
       # Emit telemetry for each event
-      ExpiAi.AI.Telemetry.emit_stream_event(provider, model_id, event.type)
+      Expi.AI.Telemetry.emit_stream_event(provider, model_id, event.type)
       event
     end)
     |> Stream.with_index()
@@ -531,7 +531,7 @@ defmodule ExpiAi.AI.Streaming do
       # Track final session metrics on last event
       if event.type == :done or event.type == :error do
         duration = System.monotonic_time(:millisecond) - start_time
-        ExpiAi.AI.Telemetry.emit_stream_session(provider, model_id, duration, index + 1)
+        Expi.AI.Telemetry.emit_stream_session(provider, model_id, duration, index + 1)
       end
       event
     end)

@@ -1,4 +1,4 @@
-defmodule ExpiAi.AI.Telemetry do
+defmodule Expi.AI.Telemetry do
   @moduledoc """
   Telemetry integration for monitoring AI module metrics.
   Tracks request/response times, token usage, costs, and error rates.
@@ -12,7 +12,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_request_start(String.t(), String.t(), map()) :: :ok
   def emit_request_start(provider, model_id, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :request, :start],
+      [:expi, :request, :start],
       %{system_time: System.system_time()},
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
@@ -25,7 +25,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_request_stop(String.t(), String.t(), integer(), map()) :: :ok
   def emit_request_stop(provider, model_id, duration_ms, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :request, :stop],
+      [:expi, :request, :stop],
       %{duration: duration_ms},
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
@@ -38,7 +38,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_request_error(String.t(), String.t(), atom(), integer(), map()) :: :ok
   def emit_request_error(provider, model_id, error_type, duration_ms, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :request, :error],
+      [:expi, :request, :error],
       %{duration: duration_ms},
       %{provider: provider, model_id: model_id, error_type: error_type}
       |> Map.merge(metadata)
@@ -51,7 +51,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_token_usage(String.t(), String.t(), integer(), integer(), map()) :: :ok
   def emit_token_usage(provider, model_id, input_tokens, output_tokens, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :tokens, :usage],
+      [:expi, :tokens, :usage],
       %{input_tokens: input_tokens, output_tokens: output_tokens, total_tokens: input_tokens + output_tokens},
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
@@ -64,7 +64,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_cost_tracking(String.t(), String.t(), float(), float(), float(), map()) :: :ok
   def emit_cost_tracking(provider, model_id, input_cost, output_cost, total_cost, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :cost, :tracking],
+      [:expi, :cost, :tracking],
       %{input_cost: input_cost, output_cost: output_cost, total_cost: total_cost},
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
@@ -77,7 +77,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_stream_event(String.t(), String.t(), atom(), map()) :: :ok
   def emit_stream_event(provider, model_id, event_type, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :stream, :event],
+      [:expi, :stream, :event],
       %{count: 1},
       %{provider: provider, model_id: model_id, event_type: event_type}
       |> Map.merge(metadata)
@@ -90,7 +90,7 @@ defmodule ExpiAi.AI.Telemetry do
   @spec emit_stream_session(String.t(), String.t(), integer(), integer(), map()) :: :ok
   def emit_stream_session(provider, model_id, duration_ms, event_count, metadata \\ %{}) do
     :telemetry.execute(
-      [:expi_ai, :stream, :session],
+      [:expi, :stream, :session],
       %{duration: duration_ms, event_count: event_count},
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
@@ -108,7 +108,7 @@ defmodule ExpiAi.AI.Telemetry do
       pool_stats = :hackney_pool.get_stats(:ai_pool)
       
       :telemetry.execute(
-        [:expi_ai, :http, :pool_stats],
+        [:expi, :http, :pool_stats],
         %{
           in_use_count: Keyword.get(pool_stats, :in_use_count, 0),
           free_count: Keyword.get(pool_stats, :free_count, 0),
@@ -128,7 +128,7 @@ defmodule ExpiAi.AI.Telemetry do
     # This would typically read from an ETS table or other storage
     # For now, emit a heartbeat to indicate the collector is running
     :telemetry.execute(
-      [:expi_ai, :metrics, :heartbeat],
+      [:expi, :metrics, :heartbeat],
       %{timestamp: System.system_time()},
       %{collector: :token_metrics}
     )
@@ -141,7 +141,7 @@ defmodule ExpiAi.AI.Telemetry do
     # This would typically aggregate cost data from storage
     # For now, emit a heartbeat to indicate the collector is running
     :telemetry.execute(
-      [:expi_ai, :metrics, :heartbeat],
+      [:expi, :metrics, :heartbeat],
       %{timestamp: System.system_time()},
       %{collector: :cost_metrics}
     )
@@ -190,13 +190,13 @@ defmodule ExpiAi.AI.Telemetry do
   @spec attach_default_handlers() :: :ok
   def attach_default_handlers do
     events = [
-      [:expi_ai, :request, :start],
-      [:expi_ai, :request, :stop], 
-      [:expi_ai, :request, :error],
-      [:expi_ai, :tokens, :usage],
-      [:expi_ai, :cost, :tracking],
-      [:expi_ai, :stream, :event],
-      [:expi_ai, :stream, :session]
+      [:expi, :request, :start],
+      [:expi, :request, :stop], 
+      [:expi, :request, :error],
+      [:expi, :tokens, :usage],
+      [:expi, :cost, :tracking],
+      [:expi, :stream, :event],
+      [:expi, :stream, :session]
     ]
 
     :telemetry.attach_many(
@@ -206,7 +206,7 @@ defmodule ExpiAi.AI.Telemetry do
       %{log_level: :info}
     )
 
-    Logger.info("ExpiAi telemetry handlers attached")
+    Logger.info("Expi telemetry handlers attached")
   end
 
   @doc """
@@ -215,12 +215,12 @@ defmodule ExpiAi.AI.Telemetry do
   @spec detach_handlers() :: :ok
   def detach_handlers do
     :telemetry.detach("expi-ai-logger")
-    Logger.info("ExpiAi telemetry handlers detached")
+    Logger.info("Expi telemetry handlers detached")
   end
 
   # Private telemetry handler function
 
-  defp handle_telemetry_event([:expi_ai, :request, :stop], measurements, metadata, _config) do
+  defp handle_telemetry_event([:expi, :request, :stop], measurements, metadata, _config) do
     Logger.info("Request completed", 
       provider: metadata.provider,
       model_id: metadata.model_id,
@@ -228,7 +228,7 @@ defmodule ExpiAi.AI.Telemetry do
     )
   end
 
-  defp handle_telemetry_event([:expi_ai, :request, :error], measurements, metadata, _config) do
+  defp handle_telemetry_event([:expi, :request, :error], measurements, metadata, _config) do
     Logger.warning("Request failed",
       provider: metadata.provider,
       model_id: metadata.model_id,
@@ -237,7 +237,7 @@ defmodule ExpiAi.AI.Telemetry do
     )
   end
 
-  defp handle_telemetry_event([:expi_ai, :tokens, :usage], measurements, metadata, _config) do
+  defp handle_telemetry_event([:expi, :tokens, :usage], measurements, metadata, _config) do
     Logger.debug("Token usage",
       provider: metadata.provider,
       model_id: metadata.model_id,
@@ -247,7 +247,7 @@ defmodule ExpiAi.AI.Telemetry do
     )
   end
 
-  defp handle_telemetry_event([:expi_ai, :cost, :tracking], measurements, metadata, _config) do
+  defp handle_telemetry_event([:expi, :cost, :tracking], measurements, metadata, _config) do
     Logger.info("Cost tracking",
       provider: metadata.provider,
       model_id: metadata.model_id,

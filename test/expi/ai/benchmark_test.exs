@@ -1,4 +1,4 @@
-defmodule ExpiAi.AI.BenchmarkTest do
+defmodule Expi.AI.BenchmarkTest do
   @moduledoc """
   Performance benchmarks for ExpiAI.
   
@@ -14,8 +14,8 @@ defmodule ExpiAi.AI.BenchmarkTest do
   
   use ExUnit.Case, async: false
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
   
   @moduletag :benchmark
   
@@ -276,7 +276,7 @@ defmodule ExpiAi.AI.BenchmarkTest do
     test "streaming event processing performance" do
       # Create a mock stream of events
       events = for i <- 1..1000 do
-        %ExpiAi.Types.AssistantMessageEvent{
+        %Expi.Types.AssistantMessageEvent{
           type: :text_delta,
           content_index: 0,
           delta: "word#{i} "

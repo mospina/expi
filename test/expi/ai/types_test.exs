@@ -1,6 +1,6 @@
-defmodule ExpiAi.TypesTest do
+defmodule Expi.TypesTest do
   use ExUnit.Case, async: true
-  alias ExpiAi.Types.{
+  alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
     Context,

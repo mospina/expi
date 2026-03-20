@@ -1,7 +1,7 @@
 import Config
 
 # Production environment configuration
-config :expi_ai,
+config :expi,
   # Higher timeouts for production reliability
   http_timeout: 120_000,
   http_recv_timeout: 120_000,

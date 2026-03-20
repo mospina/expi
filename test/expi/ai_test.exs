@@ -1,8 +1,8 @@
-defmodule ExpiAi.AITest do
+defmodule Expi.AITest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
 
   describe "get_model/2" do
     test "returns Claude Opus 4.5 model successfully" do
@@ -141,7 +141,7 @@ defmodule ExpiAi.AITest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "Test message"}
+              %Expi.Types.TextContent{type: :text, text: "Test message"}
             ],
             timestamp: System.system_time(:millisecond)
           }
@@ -158,7 +158,7 @@ defmodule ExpiAi.AITest do
 
     test "function signature matches expected type spec" do
       # Verify the function accepts Model.t() and Context.t() as specified
-      assert function_exported?(ExpiAi.AI, :complete_simple, 2)
+      assert function_exported?(Expi.AI, :complete_simple, 2)
     end
   end
 
@@ -217,7 +217,7 @@ defmodule ExpiAi.AITest do
 
     test "function signature matches expected type spec" do
       # Verify the function accepts Model.t() and Context.t() as specified
-      assert function_exported?(ExpiAi.AI, :stream_simple, 2)
+      assert function_exported?(Expi.AI, :stream_simple, 2)
     end
   end
 
@@ -226,7 +226,7 @@ defmodule ExpiAi.AITest do
       # Verify that AI.get_model/2 properly delegates to ModelRegistry
       # and returns the same data
       {:ok, ai_model} = AI.get_model("anthropic", "claude-opus-4-5")
-      {:ok, registry_model} = ExpiAi.ModelRegistry.get_model("anthropic", "claude-opus-4-5")
+      {:ok, registry_model} = Expi.ModelRegistry.get_model("anthropic", "claude-opus-4-5")
 
       assert ai_model == registry_model
     end
@@ -234,10 +234,10 @@ defmodule ExpiAi.AITest do
     test "error responses match between AI and ModelRegistry" do
       # Test that errors are properly propagated
       assert AI.get_model("unknown", "model") ==
-             ExpiAi.ModelRegistry.get_model("unknown", "model")
+             Expi.ModelRegistry.get_model("unknown", "model")
 
       assert AI.get_model("anthropic", "unknown") ==
-             ExpiAi.ModelRegistry.get_model("anthropic", "unknown")
+             Expi.ModelRegistry.get_model("anthropic", "unknown")
     end
   end
 

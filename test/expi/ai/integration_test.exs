@@ -1,4 +1,4 @@
-defmodule ExpiAi.AI.IntegrationTest do
+defmodule Expi.AI.IntegrationTest do
   @moduledoc """
   Integration tests for ExpiAI with live API providers.
   
@@ -13,8 +13,8 @@ defmodule ExpiAi.AI.IntegrationTest do
   
   use ExUnit.Case, async: false
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{
+  alias Expi.AI
+  alias Expi.Types.{
     Context, 
     UserMessage, 
     TextContent, 

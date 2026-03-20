@@ -1,7 +1,7 @@
 import Config
 
 # AI Module Configuration
-config :expi_ai,
+config :expi,
   # Provider API Keys (set via environment variables)
   anthropic_api_key: {:system, "ANTHROPIC_API_KEY"},
   gemini_api_key: {:system, "GEMINI_API_KEY"},

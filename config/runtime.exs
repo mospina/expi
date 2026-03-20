@@ -18,7 +18,7 @@ if config_env() == :prod do
     |> Enum.filter(fn {_k, v} -> not is_nil(v) and v != "" end)
     |> Enum.into(%{})
 
-  config :expi_ai,
+  config :expi,
     api_keys: api_keys,
     
     # Override endpoints from environment if provided
@@ -68,7 +68,7 @@ end
 
 if config_env() == :dev do
   # Development runtime overrides
-  config :expi_ai,
+  config :expi,
     # Use local endpoints for development if specified
     ollama_endpoint: System.get_env("OLLAMA_ENDPOINT", "http://localhost:11434"),
     
@@ -85,7 +85,7 @@ end
 
 if config_env() == :test do
   # Test environment - use stub implementations
-  config :expi_ai,
+  config :expi,
     api_keys: %{},  # Empty in test
     use_stubs: true
 end

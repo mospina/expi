@@ -1,8 +1,8 @@
-defmodule ExpiAi.CompleteSimpleTest do
+defmodule Expi.CompleteSimpleTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{
+  alias Expi.AI
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     TextContent,
@@ -144,7 +144,7 @@ defmodule ExpiAi.CompleteSimpleTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 18,
-              cost: %ExpiAi.Types.Cost{input: 0.024, output: 0.15, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{input: 0.024, output: 0.15, cache_read: 0.0, cache_write: 0.0}
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
@@ -181,8 +181,8 @@ defmodule ExpiAi.CompleteSimpleTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "What's in this image?"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "What's in this image?"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
@@ -378,8 +378,8 @@ defmodule ExpiAi.CompleteSimpleTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "Analyze this:"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "Analyze this:"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 data: "base64_image_data_here",
                 mime_type: "image/jpeg"

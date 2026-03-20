@@ -1,8 +1,8 @@
-defmodule ExpiAi.Providers.GeminiTest do
+defmodule Expi.Providers.GeminiTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.Providers.Gemini
-  alias ExpiAi.Types.{
+  alias Expi.Providers.Gemini
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     Model,
@@ -21,7 +21,7 @@ defmodule ExpiAi.Providers.GeminiTest do
       base_url: "https://generativelanguage.googleapis.com",
       reasoning: false,
       input: ["text"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 0.5,
         output: 1.5,
         cache_read: 0.0,
@@ -41,7 +41,7 @@ defmodule ExpiAi.Providers.GeminiTest do
       base_url: "https://generativelanguage.googleapis.com",
       reasoning: false,
       input: ["text", "image"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 0.5,
         output: 1.5,
         cache_read: 0.0,
@@ -112,8 +112,8 @@ defmodule ExpiAi.Providers.GeminiTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "Describe this image in detail"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "Describe this image in detail"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
@@ -149,7 +149,7 @@ defmodule ExpiAi.Providers.GeminiTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 20,
-              cost: %ExpiAi.Types.Cost{input: 0.004, output: 0.018, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{input: 0.004, output: 0.018, cache_read: 0.0, cache_write: 0.0}
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
@@ -330,8 +330,8 @@ defmodule ExpiAi.Providers.GeminiTest do
           %UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "What do you see?"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "What do you see?"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 data: "base64imagedata",
                 mime_type: "image/jpeg"
@@ -407,7 +407,7 @@ defmodule ExpiAi.Providers.GeminiTest do
             provider: "google",
             model: "gemini-pro",
             usage: %Usage{input: 1, output: 3, cache_read: 0, cache_write: 0, total_tokens: 4,
-              cost: %ExpiAi.Types.Cost{input: 0.0005, output: 0.0045, cache_read: 0.0, cache_write: 0.0}},
+              cost: %Expi.Types.Cost{input: 0.0005, output: 0.0045, cache_read: 0.0, cache_write: 0.0}},
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
           },

@@ -1,12 +1,12 @@
-defmodule ExpiAi.Providers.Gemini do
+defmodule Expi.Providers.Gemini do
   @moduledoc """
   Google Gemini API provider implementation.
   Supports Gemini models including multi-modal capabilities.
   """
 
-  alias ExpiAi.AI.{Auth, HttpClient}
-  alias ExpiAi.Providers.Base
-  alias ExpiAi.Types.{
+  alias Expi.AI.{Auth, HttpClient}
+  alias Expi.Providers.Base
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     ImageContent,
@@ -302,7 +302,7 @@ defmodule ExpiAi.Providers.Gemini do
     input_cost = input * 0.5 / 1_000_000
     output_cost = output * 1.5 / 1_000_000
 
-    %ExpiAi.Types.Cost{
+    %Expi.Types.Cost{
       input: input_cost,
       output: output_cost,
       cache_read: 0.0,
@@ -330,7 +330,7 @@ defmodule ExpiAi.Providers.Gemini do
          {:ok, url} <- build_streaming_url(model) do
       
       # Use production streaming if available, fallback to demo stream
-      case ExpiAi.AI.Streaming.create_production_stream(url, headers, "google", model.id) do
+      case Expi.AI.Streaming.create_production_stream(url, headers, "google", model.id) do
         {:ok, stream} ->
           # Transform Gemini SSE events to standardized events
           transformed_stream = 
@@ -342,7 +342,7 @@ defmodule ExpiAi.Providers.Gemini do
         
         {:error, _reason} ->
           # Fallback to realistic demo stream for testing
-          ExpiAi.AI.Streaming.create_fallback_stream("google", model.id)
+          Expi.AI.Streaming.create_fallback_stream("google", model.id)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -376,7 +376,7 @@ defmodule ExpiAi.Providers.Gemini do
 
   defp build_streaming_url(model) do
     base_url = model.base_url || "https://generativelanguage.googleapis.com"
-    case ExpiAi.AI.Auth.get_api_key("google") do
+    case Expi.AI.Auth.get_api_key("google") do
       {:ok, api_key} ->
         url = "#{base_url}/v1beta/models/#{model.id}:streamGenerateContent?key=#{api_key}"
         {:ok, url}
@@ -387,7 +387,7 @@ defmodule ExpiAi.Providers.Gemini do
 
   defp transform_gemini_event(sse_event, _payload) do
     # Parse Gemini-specific SSE event format and convert to standardized AssistantMessageEvent
-    ExpiAi.AI.Streaming.standardize_event(sse_event, "google")
+    Expi.AI.Streaming.standardize_event(sse_event, "google")
   end
 
   defp generate_tool_call_id do

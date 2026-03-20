@@ -1,4 +1,4 @@
-defmodule ExpiAi.Auth do
+defmodule Expi.Auth do
   @moduledoc """
   Authentication management for API keys and provider connections.
   
@@ -6,8 +6,8 @@ defmodule ExpiAi.Auth do
   validation for Anthropic, Google, and Ollama providers.
   """
 
-  alias ExpiAi.Config
-  alias ExpiAi.Types.Model
+  alias Expi.Config
+  alias Expi.Types.Model
 
   @doc """
   Gets API key for a provider from configuration.

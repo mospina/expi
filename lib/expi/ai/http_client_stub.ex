@@ -1,4 +1,4 @@
-defmodule ExpiAi.AI.HttpClient do
+defmodule Expi.AI.HttpClient do
   @moduledoc """
   Production HTTP client for AI providers using HTTPoison.
   Handles connection pooling, SSL verification, and proper error handling.

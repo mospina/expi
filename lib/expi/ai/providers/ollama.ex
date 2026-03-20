@@ -1,12 +1,12 @@
-defmodule ExpiAi.Providers.Ollama do
+defmodule Expi.Providers.Ollama do
   @moduledoc """
   Ollama local API provider implementation.
   Supports local LLM models through OpenAI-compatible API.
   """
 
-  alias ExpiAi.AI.HttpClient
-  alias ExpiAi.Providers.Base
-  alias ExpiAi.Types.{
+  alias Expi.AI.HttpClient
+  alias Expi.Providers.Base
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     ImageContent,
@@ -292,7 +292,7 @@ defmodule ExpiAi.Providers.Ollama do
 
   defp calculate_ollama_cost(_input, _output) do
     # Ollama is free for local usage
-    %ExpiAi.Types.Cost{
+    %Expi.Types.Cost{
       input: 0.0,
       output: 0.0,
       cache_read: 0.0,
@@ -313,7 +313,7 @@ defmodule ExpiAi.Providers.Ollama do
          {:ok, url} <- build_streaming_url(model) do
       
       # Use production streaming if available, fallback to demo stream
-      case ExpiAi.AI.Streaming.create_production_stream(url, headers, "ollama", model.id) do
+      case Expi.AI.Streaming.create_production_stream(url, headers, "ollama", model.id) do
         {:ok, stream} ->
           # Transform Ollama SSE events to standardized events
           transformed_stream = 
@@ -325,7 +325,7 @@ defmodule ExpiAi.Providers.Ollama do
         
         {:error, _reason} ->
           # Fallback to realistic demo stream for testing
-          ExpiAi.AI.Streaming.create_fallback_stream("ollama", model.id)
+          Expi.AI.Streaming.create_fallback_stream("ollama", model.id)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -352,14 +352,14 @@ defmodule ExpiAi.Providers.Ollama do
   end
 
   defp build_streaming_url(_model) do
-    ollama_endpoint = ExpiAi.AI.Auth.get_ollama_endpoint()
+    ollama_endpoint = Expi.AI.Auth.get_ollama_endpoint()
     url = "#{ollama_endpoint}/v1/chat/completions"
     {:ok, url}
   end
 
   defp transform_ollama_event(sse_event, _payload) do
     # Parse Ollama-specific SSE event format and convert to standardized AssistantMessageEvent
-    ExpiAi.AI.Streaming.standardize_event(sse_event, "ollama")
+    Expi.AI.Streaming.standardize_event(sse_event, "ollama")
   end
 
   defp parse_ollama_finish_reason("stop"), do: :stop

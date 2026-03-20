@@ -64,8 +64,8 @@ ExpiAI uses a standardized event system across all providers with 12 event types
 ### Simple Streaming
 
 ```elixir
-alias ExpiAi.AI
-alias ExpiAi.Types.{Context, UserMessage}
+alias Expi.AI
+alias Expi.Types.{Context, UserMessage}
 
 # Setup model and context
 {:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
@@ -116,7 +116,7 @@ end)
 
 ```elixir
 defmodule MyApp.StreamAccumulator do
-  alias ExpiAi.Types.{AssistantMessage, TextContent}
+  alias Expi.Types.{AssistantMessage, TextContent}
 
   def accumulate_stream(stream) do
     stream
@@ -161,8 +161,8 @@ IO.puts("Final message: #{inspect(final_state.message)}")
 defmodule MyAppWeb.ChatLive do
   use MyAppWeb, :live_view
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
 
   def mount(_params, _session, socket) do
     {:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
@@ -297,8 +297,8 @@ end
 defmodule MyApp.StreamingService do
   use GenServer
   
-  alias ExpiAi.AI
-  alias ExpiAi.Types.{Context, UserMessage}
+  alias Expi.AI
+  alias Expi.Types.{Context, UserMessage}
 
   # Client API
 

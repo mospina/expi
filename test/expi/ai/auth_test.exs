@@ -1,8 +1,8 @@
-defmodule ExpiAi.AuthTest do
+defmodule Expi.AuthTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.Auth
-  alias ExpiAi.Types.Model
+  alias Expi.Auth
+  alias Expi.Types.Model
 
   describe "get_api_key/1" do
     test "returns Anthropic API key from config" do
@@ -104,7 +104,7 @@ defmodule ExpiAi.AuthTest do
         base_url: "https://api.anthropic.com",
         reasoning: true,
         input: ["text", "image"],
-        cost: %ExpiAi.Types.Cost{input: 15.0, output: 75.0, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 15.0, output: 75.0, cache_read: 0.0, cache_write: 0.0},
         context_window: 200_000,
         max_tokens: 4096,
         headers: %{"Custom-Header" => "custom-value"},
@@ -126,7 +126,7 @@ defmodule ExpiAi.AuthTest do
         base_url: "https://generativelanguage.googleapis.com",
         reasoning: false,
         input: ["text"],
-        cost: %ExpiAi.Types.Cost{input: 0.5, output: 1.5, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 0.5, output: 1.5, cache_read: 0.0, cache_write: 0.0},
         context_window: 30_720,
         max_tokens: 8192,
         headers: %{},
@@ -146,7 +146,7 @@ defmodule ExpiAi.AuthTest do
         base_url: "http://localhost:11434/v1",
         reasoning: false,
         input: ["text"],
-        cost: %ExpiAi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0},
         context_window: 8192,
         max_tokens: 4096,
         headers: %{},

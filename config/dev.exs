@@ -1,7 +1,7 @@
 import Config
 
 # Development environment configuration
-config :expi_ai,
+config :expi,
   # Enable debug logging in development
   log_level: :debug,
   

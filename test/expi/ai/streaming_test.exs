@@ -1,9 +1,9 @@
-defmodule ExpiAi.AI.StreamingTest do
+defmodule Expi.AI.StreamingTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.AI
-  alias ExpiAi.AI.Streaming
-  alias ExpiAi.Types.{
+  alias Expi.AI
+  alias Expi.AI.Streaming
+  alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
     Context,

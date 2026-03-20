@@ -1,6 +1,6 @@
-defmodule ExpiAi.Application do
+defmodule Expi.Application do
   @moduledoc """
-  OTP Application for ExpiAi AI module.
+  OTP Application for Expi AI module.
   
   Starts the supervision tree, configures connection pools, and initializes telemetry.
   """
@@ -9,7 +9,7 @@ defmodule ExpiAi.Application do
   require Logger
 
   @doc """
-  Starts the ExpiAi application with production enhancements.
+  Starts the Expi application with production enhancements.
   """
   @spec start(Application.start_type(), term()) :: {:ok, pid()} | {:error, term()}
   def start(_type, _args) do
@@ -17,27 +17,27 @@ defmodule ExpiAi.Application do
     :ok = setup_connection_pools()
     
     # Attach telemetry handlers
-    :ok = ExpiAi.AI.Telemetry.attach_default_handlers()
+    :ok = Expi.AI.Telemetry.attach_default_handlers()
     
     children = [
-      {ExpiAi.ModelRegistry, []}  # Corrected to use proper module name
+      {Expi.ModelRegistry, []}  # Corrected to use proper module name
     ]
 
-    opts = [strategy: :one_for_one, name: ExpiAi.Supervisor]
+    opts = [strategy: :one_for_one, name: Expi.Supervisor]
     
-    Logger.info("Starting ExpiAi application with production configuration")
+    Logger.info("Starting Expi application with production configuration")
     
     Supervisor.start_link(children, opts)
   end
 
   @doc """
-  Stops the ExpiAi application and cleans up resources.
+  Stops the Expi application and cleans up resources.
   """
   @spec stop(term()) :: :ok
   def stop(_state) do
     # Clean up telemetry handlers
-    ExpiAi.AI.Telemetry.detach_handlers()
-    Logger.info("ExpiAi application stopped, resources cleaned up")
+    Expi.AI.Telemetry.detach_handlers()
+    Logger.info("Expi application stopped, resources cleaned up")
     :ok
   end
 
@@ -45,7 +45,7 @@ defmodule ExpiAi.Application do
 
   defp setup_connection_pools do
     # Get pool configurations from application config
-    pool_configs = Application.get_env(:expi_ai, :http_pools, [])
+    pool_configs = Application.get_env(:expi, :http_pools, [])
     
     # Setup main HTTP pool for regular requests
     ai_pool_config = Keyword.get(pool_configs, :ai_pool, [

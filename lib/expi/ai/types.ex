@@ -1,6 +1,6 @@
-defmodule ExpiAi.Types do
+defmodule Expi.Types do
   @moduledoc """
-  Core type definitions for the ExpiAi AI module.
+  Core type definitions for the Expi AI module.
   
   This module defines all the structs and types used throughout the AI module,
   following the architecture specifications from docs/architecture-analysis.md.

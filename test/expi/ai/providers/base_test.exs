@@ -1,8 +1,8 @@
-defmodule ExpiAi.Providers.BaseTest do
+defmodule Expi.Providers.BaseTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.Providers.Base
-  alias ExpiAi.Types.{
+  alias Expi.Providers.Base
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     Model,
@@ -20,7 +20,7 @@ defmodule ExpiAi.Providers.BaseTest do
       base_url: "https://api.test.com",
       reasoning: false,
       input: ["text"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 1.0,
         output: 2.0,
         cache_read: 0.0,
@@ -181,7 +181,7 @@ defmodule ExpiAi.Providers.BaseTest do
         base_url: "https://api.test.com",
         reasoning: false,
         input: ["text"],
-        cost: %ExpiAi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
         context_window: 4000,
         max_tokens: 1000,
         headers: %{},
@@ -228,7 +228,7 @@ defmodule ExpiAi.Providers.BaseTest do
       usage = %{input: 0, output: 0, cache_read: 0, cache_write: 0}
 
       cost = Base.calculate_cost(%Model{
-        cost: %ExpiAi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.5, cache_write: 1.5}
+        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.5, cache_write: 1.5}
       }, usage)
 
       assert cost.input == 0.0
@@ -280,7 +280,7 @@ defmodule ExpiAi.Providers.BaseTest do
           provider: "test",
           model: "test-model",
           usage: %Usage{input: 1, output: 2, cache_read: 0, cache_write: 0, total_tokens: 3,
-            cost: %ExpiAi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
+            cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
           stop_reason: :stop,
           timestamp: System.system_time(:millisecond)
         }
@@ -308,7 +308,7 @@ defmodule ExpiAi.Providers.BaseTest do
           provider: "test",
           model: "test-model",
           usage: %Usage{input: 5, output: 6, cache_read: 0, cache_write: 0, total_tokens: 11,
-            cost: %ExpiAi.Types.Cost{input: 0.005, output: 0.012, cache_read: 0.0, cache_write: 0.0}},
+            cost: %Expi.Types.Cost{input: 0.005, output: 0.012, cache_read: 0.0, cache_write: 0.0}},
           stop_reason: :stop,
           timestamp: System.system_time(:millisecond) - 500
         },
@@ -332,8 +332,8 @@ defmodule ExpiAi.Providers.BaseTest do
         %UserMessage{
           role: :user,
           content: [
-            %ExpiAi.Types.TextContent{type: :text, text: "Describe this"},
-            %ExpiAi.Types.ImageContent{type: :image, data: "base64data", mime_type: "image/png"}
+            %Expi.Types.TextContent{type: :text, text: "Describe this"},
+            %Expi.Types.ImageContent{type: :image, data: "base64data", mime_type: "image/png"}
           ],
           timestamp: System.system_time(:millisecond)
         }
@@ -470,12 +470,12 @@ defmodule ExpiAi.Providers.BaseTest do
       # Cost should be calculated based on model pricing
       assert usage.cost.input == 0.0001  # 100 * 1.0 / 1_000_000
       assert usage.cost.output == 0.0001  # 50 * 2.0 / 1_000_000
-      assert ExpiAi.Types.Cost.total(usage.cost) == 0.0002
+      assert Expi.Types.Cost.total(usage.cost) == 0.0002
     end
 
     test "handles zero usage" do
       model = %Model{
-        cost: %ExpiAi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0}
+        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0}
       }
 
       usage = Base.create_usage(model, 0, 0, 0)
@@ -483,7 +483,7 @@ defmodule ExpiAi.Providers.BaseTest do
       assert usage.input == 0
       assert usage.output == 0
       assert usage.total_tokens == 0
-      assert ExpiAi.Types.Cost.total(usage.cost) == 0.0
+      assert Expi.Types.Cost.total(usage.cost) == 0.0
     end
   end
 

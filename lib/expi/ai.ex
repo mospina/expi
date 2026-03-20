@@ -1,6 +1,6 @@
-defmodule ExpiAi.AI do
+defmodule Expi.AI do
   @moduledoc """
-  Main AI module for ExpiAi project.
+  Main AI module for Expi project.
   
   Provides the core public API for interacting with Large Language Models,
   supporting Anthropic Claude, Google Gemini, and Ollama models.
@@ -14,23 +14,23 @@ defmodule ExpiAi.AI do
   ## Usage
   
       # Get a model
-      {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-opus-4-5")
+      {:ok, model} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
       
       # Synchronous completion
-      context = %ExpiAi.Types.Context{
-        messages: [%ExpiAi.Types.UserMessage{
+      context = %Expi.Types.Context{
+        messages: [%Expi.Types.UserMessage{
           role: :user,
           content: "Hello",
           timestamp: System.system_time(:millisecond)
         }]
       }
       
-      {:ok, response} = ExpiAi.AI.complete_simple(model, context)
+      {:ok, response} = Expi.AI.complete_simple(model, context)
       
       # Streaming completion
-      {:ok, stream} = ExpiAi.AI.stream_simple(model, context)
+      {:ok, stream} = Expi.AI.stream_simple(model, context)
   """
-  alias ExpiAi.Types.{AssistantMessage, Context, Model}
+  alias Expi.Types.{AssistantMessage, Context, Model}
 
   @type provider :: String.t()
   @type model_id :: String.t()
@@ -56,8 +56,8 @@ defmodule ExpiAi.AI do
   ## Examples
   
       # High-capability reasoning model
-      iex> ExpiAi.AI.get_model("anthropic", "claude-opus-4-5")
-      {:ok, %ExpiAi.Types.Model{
+      iex> Expi.AI.get_model("anthropic", "claude-opus-4-5")
+      {:ok, %Expi.Types.Model{
         provider: "anthropic",
         model_id: "claude-opus-4-5", 
         capabilities: [:text, :images, :tools, :reasoning],
@@ -65,18 +65,18 @@ defmodule ExpiAi.AI do
       }}
       
       # Vision-enabled model
-      iex> ExpiAi.AI.get_model("google", "gemini-pro-vision") 
-      {:ok, %ExpiAi.Types.Model{capabilities: [:text, :images, :tools]}}
+      iex> Expi.AI.get_model("google", "gemini-pro-vision") 
+      {:ok, %Expi.Types.Model{capabilities: [:text, :images, :tools]}}
       
       # Free local model
-      iex> ExpiAi.AI.get_model("ollama", "llama3.1:8b")
-      {:ok, %ExpiAi.Types.Model{pricing: %{input_tokens: 0.0, output_tokens: 0.0}}}
+      iex> Expi.AI.get_model("ollama", "llama3.1:8b")
+      {:ok, %Expi.Types.Model{pricing: %{input_tokens: 0.0, output_tokens: 0.0}}}
       
       # Error cases  
-      iex> ExpiAi.AI.get_model("invalid", "model")
+      iex> Expi.AI.get_model("invalid", "model")
       {:error, :unknown_provider}
       
-      iex> ExpiAi.AI.get_model("anthropic", "nonexistent")
+      iex> Expi.AI.get_model("anthropic", "nonexistent")
       {:error, :model_not_found}
       
   ## Available Models
@@ -95,7 +95,7 @@ defmodule ExpiAi.AI do
   """
   @spec get_model(provider(), model_id()) :: {:ok, Model.t()} | {:error, atom()}
   def get_model(provider, model_id) do
-    ExpiAi.ModelRegistry.get_model(provider, model_id)
+    Expi.ModelRegistry.get_model(provider, model_id)
   end
 
   @doc """
@@ -120,12 +120,12 @@ defmodule ExpiAi.AI do
   ## Examples
   
       # Basic text completion
-      {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
+      {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
       
-      context = %ExpiAi.Types.Context{
+      context = %Expi.Types.Context{
         system_prompt: "You are a helpful assistant",
         messages: [
-          %ExpiAi.Types.UserMessage{
+          %Expi.Types.UserMessage{
             role: :user,
             content: "Explain quantum computing in simple terms",
             timestamp: System.system_time(:millisecond)
@@ -133,7 +133,7 @@ defmodule ExpiAi.AI do
         ]
       }
       
-      {:ok, response} = ExpiAi.AI.complete_simple(model, context)
+      {:ok, response} = Expi.AI.complete_simple(model, context)
       
       # Access response content
       content = response.content |> hd() |> Map.get(:text)
@@ -144,15 +144,15 @@ defmodule ExpiAi.AI do
       IO.puts("Cost: $\#{response.usage.cost.input + response.usage.cost.output}")
       
       # Multi-modal input with images (Gemini Vision)
-      {:ok, vision_model} = ExpiAi.AI.get_model("google", "gemini-pro-vision")
+      {:ok, vision_model} = Expi.AI.get_model("google", "gemini-pro-vision")
       
-      context = %ExpiAi.Types.Context{
+      context = %Expi.Types.Context{
         messages: [
-          %ExpiAi.Types.UserMessage{
+          %Expi.Types.UserMessage{
             role: :user,
             content: [
-              %ExpiAi.Types.TextContent{type: :text, text: "What's in this image?"},
-              %ExpiAi.Types.ImageContent{
+              %Expi.Types.TextContent{type: :text, text: "What's in this image?"},
+              %Expi.Types.ImageContent{
                 type: :image,
                 source: %{type: :base64, media_type: "image/jpeg", data: "..."}
               }
@@ -162,11 +162,11 @@ defmodule ExpiAi.AI do
         ]
       }
       
-      {:ok, response} = ExpiAi.AI.complete_simple(vision_model, context)
+      {:ok, response} = Expi.AI.complete_simple(vision_model, context)
       
       # Tool calling example
       tools = [
-        %ExpiAi.Types.Tool{
+        %Expi.Types.Tool{
           type: :function,
           function: %{
             name: "get_weather",
@@ -180,8 +180,8 @@ defmodule ExpiAi.AI do
         }
       ]
       
-      context = %ExpiAi.Types.Context{
-        messages: [%ExpiAi.Types.UserMessage{
+      context = %Expi.Types.Context{
+        messages: [%Expi.Types.UserMessage{
           role: :user, 
           content: "What's the weather in Paris?",
           timestamp: System.system_time(:millisecond)
@@ -189,7 +189,7 @@ defmodule ExpiAi.AI do
         tools: tools
       }
       
-      {:ok, response} = ExpiAi.AI.complete_simple(model, context)
+      {:ok, response} = Expi.AI.complete_simple(model, context)
       
       # Handle tool calls
       Enum.each(response.tool_calls, fn tool_call ->
@@ -199,7 +199,7 @@ defmodule ExpiAi.AI do
       end)
       
       # With options (temperature, max tokens, etc.)
-      {:ok, response} = ExpiAi.AI.complete_simple(model, context, %{
+      {:ok, response} = Expi.AI.complete_simple(model, context, %{
         temperature: 0.7,
         max_tokens: 1000,
         thinking: true  # Enable reasoning mode (Claude only)
@@ -207,7 +207,7 @@ defmodule ExpiAi.AI do
       
   ## Error Handling
   
-      case ExpiAi.AI.complete_simple(model, context) do
+      case Expi.AI.complete_simple(model, context) do
         {:ok, response} ->
           handle_success(response)
         
@@ -239,15 +239,15 @@ defmodule ExpiAi.AI do
   end
 
   def complete_simple(%Model{provider: "anthropic"} = model, context, options) do
-    ExpiAi.Providers.Anthropic.complete(model, context, options)
+    Expi.Providers.Anthropic.complete(model, context, options)
   end
 
   def complete_simple(%Model{provider: "google"} = model, context, options) do
-    ExpiAi.Providers.Gemini.complete(model, context, options)
+    Expi.Providers.Gemini.complete(model, context, options)
   end
 
   def complete_simple(%Model{provider: "ollama"} = model, context, options) do
-    ExpiAi.Providers.Ollama.complete(model, context, options)
+    Expi.Providers.Ollama.complete(model, context, options)
   end
 
   def complete_simple(%Model{provider: provider}, _context, _options) do
@@ -257,7 +257,7 @@ defmodule ExpiAi.AI do
   @doc """
   Performs a streaming interaction with an LLM, returning real-time events.
   
-  This function returns a stream of `ExpiAi.Types.AssistantMessageEvent` structs
+  This function returns a stream of `Expi.Types.AssistantMessageEvent` structs
   that are emitted as the model generates its response. Perfect for chat interfaces,
   live coding assistance, or any scenario requiring progressive response display.
   
@@ -300,17 +300,17 @@ defmodule ExpiAi.AI do
   ## Examples
   
       # Basic streaming with real-time text display
-      {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
+      {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
       
-      context = %ExpiAi.Types.Context{
-        messages: [%ExpiAi.Types.UserMessage{
+      context = %Expi.Types.Context{
+        messages: [%Expi.Types.UserMessage{
           role: :user,
           content: "Write a haiku about programming",
           timestamp: System.system_time(:millisecond)
         }]
       }
       
-      {:ok, stream} = ExpiAi.AI.stream_simple(model, context)
+      {:ok, stream} = Expi.AI.stream_simple(model, context)
       
       stream
       |> Stream.each(fn event ->
@@ -326,9 +326,9 @@ defmodule ExpiAi.AI do
       |> Stream.run()
       
       # Streaming with Claude's reasoning mode
-      {:ok, opus} = ExpiAi.AI.get_model("anthropic", "claude-opus-4-5")
+      {:ok, opus} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
       
-      {:ok, stream} = ExpiAi.AI.stream_simple(opus, context, %{thinking: true})
+      {:ok, stream} = Expi.AI.stream_simple(opus, context, %{thinking: true})
       
       stream
       |> Stream.each(fn event ->
@@ -342,7 +342,7 @@ defmodule ExpiAi.AI do
       |> Stream.run()
       
       # Accumulate complete response from stream
-      {:ok, stream} = ExpiAi.AI.stream_simple(model, context)
+      {:ok, stream} = Expi.AI.stream_simple(model, context)
       
       complete_text = 
         stream
@@ -354,11 +354,11 @@ defmodule ExpiAi.AI do
       
       # Phoenix LiveView integration
       def start_streaming(socket, message) do
-        {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
+        {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
         context = build_context(message)
         
         Task.async(fn ->
-          case ExpiAi.AI.stream_simple(model, context) do
+          case Expi.AI.stream_simple(model, context) do
             {:ok, stream} ->
               stream
               |> Stream.each(fn event ->
@@ -372,7 +372,7 @@ defmodule ExpiAi.AI do
       end
       
       # Batch processing for performance  
-      {:ok, stream} = ExpiAi.AI.stream_simple(model, context)
+      {:ok, stream} = Expi.AI.stream_simple(model, context)
       
       stream
       |> Stream.chunk_every(5)  # Process events in batches
@@ -388,7 +388,7 @@ defmodule ExpiAi.AI do
       |> Stream.run()
       
       # Error handling with stream recovery
-      case ExpiAi.AI.stream_simple(model, context) do
+      case Expi.AI.stream_simple(model, context) do
         {:ok, stream} ->
           try do
             stream
@@ -419,11 +419,11 @@ defmodule ExpiAi.AI do
         end
         
         def handle_cast({:start_stream, message}, state) do
-          {:ok, model} = ExpiAi.AI.get_model("anthropic", "claude-sonnet-3-6")
+          {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
           context = build_context(message)
           
           Task.start(fn ->
-            case ExpiAi.AI.stream_simple(model, context) do
+            case Expi.AI.stream_simple(model, context) do
               {:ok, stream} ->
                 stream |> Stream.each(fn event ->
                   GenServer.cast(__MODULE__, {:stream_event, event})
@@ -455,6 +455,6 @@ defmodule ExpiAi.AI do
   end
 
   def stream_simple(model, context, options) do
-    ExpiAi.AI.Streaming.stream_events(model, context, options)
+    Expi.AI.Streaming.stream_events(model, context, options)
   end
 end

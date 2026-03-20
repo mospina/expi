@@ -1,10 +1,10 @@
-defmodule ExpiAi.Providers.Base do
+defmodule Expi.Providers.Base do
   @moduledoc """
   Base provider functionality shared across all AI providers.
   Provides common validation, formatting, and utility functions.
   """
 
-  alias ExpiAi.Types.{
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     Cost,

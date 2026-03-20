@@ -1,8 +1,8 @@
-defmodule ExpiAi.HttpClientTest do
+defmodule Expi.HttpClientTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.HttpClient
-  alias ExpiAi.Types.Model
+  alias Expi.HttpClient
+  alias Expi.Types.Model
 
   # Mock HTTP responses for testing
   defmodule MockHTTP do
@@ -183,7 +183,7 @@ defmodule ExpiAi.HttpClientTest do
         base_url: "https://api.test.com",
         reasoning: false,
         input: ["text"],
-        cost: %ExpiAi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
         context_window: 4000,
         max_tokens: 1000,
         headers: %{"Custom-Header" => "value"},
@@ -206,7 +206,7 @@ defmodule ExpiAi.HttpClientTest do
         base_url: "https://api.test.com",
         reasoning: false,
         input: ["text"],
-        cost: %ExpiAi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
+        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.0, cache_write: 0.0},
         context_window: 4000,
         max_tokens: 1000,
         headers: %{"Model-Header" => "model-value"},

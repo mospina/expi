@@ -1,8 +1,8 @@
-defmodule ExpiAi.Providers.OllamaTest do
+defmodule Expi.Providers.OllamaTest do
   use ExUnit.Case, async: true
 
-  alias ExpiAi.Providers.Ollama
-  alias ExpiAi.Types.{
+  alias Expi.Providers.Ollama
+  alias Expi.Types.{
     AssistantMessage,
     Context,
     Model,
@@ -21,7 +21,7 @@ defmodule ExpiAi.Providers.OllamaTest do
       base_url: "http://localhost:11434/v1",
       reasoning: false,
       input: ["text"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 0.0,
         output: 0.0,
         cache_read: 0.0,
@@ -41,7 +41,7 @@ defmodule ExpiAi.Providers.OllamaTest do
       base_url: "http://localhost:11434/v1",
       reasoning: false,
       input: ["text"],
-      cost: %ExpiAi.Types.Cost{
+      cost: %Expi.Types.Cost{
         input: 0.0,
         output: 0.0,
         cache_read: 0.0,
@@ -136,7 +136,7 @@ defmodule ExpiAi.Providers.OllamaTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 28,
-              cost: %ExpiAi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
@@ -335,7 +335,7 @@ defmodule ExpiAi.Providers.OllamaTest do
             provider: "ollama",
             model: "llama3.1:8b",
             usage: %Usage{input: 5, output: 6, cache_read: 0, cache_write: 0, total_tokens: 11,
-              cost: %ExpiAi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+              cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
           },

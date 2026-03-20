@@ -28,7 +28,7 @@ Claude is Anthropic's family of AI assistants, known for their helpful, harmless
 export ANTHROPIC_API_KEY="sk-ant-api03-..."
 
 # Or in runtime config
-config :expi_ai,
+config :expi,
   api_keys: %{
     anthropic: System.get_env("ANTHROPIC_API_KEY")
   }
@@ -41,8 +41,8 @@ Get your API key from [Anthropic Console](https://console.anthropic.com/).
 #### 1. Basic Text Generation
 
 ```elixir
-alias ExpiAi.AI
-alias ExpiAi.Types.{Context, UserMessage}
+alias Expi.AI
+alias Expi.Types.{Context, UserMessage}
 
 {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")
 
@@ -91,7 +91,7 @@ Quantum computing is like having a computer that can explore many possible solut
 #### 3. Multi-Modal Input (Images)
 
 ```elixir
-alias ExpiAi.Types.{ImageContent, TextContent}
+alias Expi.Types.{ImageContent, TextContent}
 
 context = %Context{
   messages: [
@@ -122,7 +122,7 @@ context = %Context{
 #### 4. Function/Tool Calling
 
 ```elixir
-alias ExpiAi.Types.Tool
+alias Expi.Types.Tool
 
 tools = [
   %Tool{

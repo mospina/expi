@@ -1,4 +1,4 @@
-defmodule ExpiAi.ModelRegistry do
+defmodule Expi.ModelRegistry do
   @moduledoc """
   Model registry for hardcoded model definitions with easy extensibility.
   
@@ -6,7 +6,7 @@ defmodule ExpiAi.ModelRegistry do
   for supported AI providers: Anthropic, Google, and Ollama.
   """
 
-  alias ExpiAi.Types.{Cost, Model}
+  alias Expi.Types.{Cost, Model}
 
   # Registry state for dynamic model registration
   use Agent
