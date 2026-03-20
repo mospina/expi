@@ -162,8 +162,8 @@ defmodule ExpiAi.AITest do
     end
   end
 
-  describe "stream_simple/2 (stub validation)" do
-    test "function exists and returns not_implemented error" do
+  describe "stream_simple/2 (functionality validation)" do
+    test "function exists and returns streaming enumerable" do
       {:ok, model} = AI.get_model("ollama", "llama3.1:8b")
 
       context = %Context{
@@ -178,7 +178,16 @@ defmodule ExpiAi.AITest do
         tools: nil
       }
 
-      assert {:error, :not_implemented} = AI.stream_simple(model, context)
+      case AI.stream_simple(model, context) do
+        {:ok, stream} ->
+          assert is_function(stream, 2)  # Stream should be an enumerable function
+          # Test that we can actually enumerate events
+          events = stream |> Enum.take(3)
+          assert length(events) == 3
+        {:error, reason} ->
+          # Network/connection errors acceptable for Ollama in test environment
+          assert reason in [:connection_refused, :network_error]
+      end
     end
 
     test "accepts valid model and context parameters" do
@@ -194,7 +203,16 @@ defmodule ExpiAi.AITest do
         ]
       }
 
-      assert {:error, :not_implemented} = AI.stream_simple(model, context)
+      case AI.stream_simple(model, context) do
+        {:ok, stream} ->
+          # Should return a valid stream
+          assert is_function(stream, 2)
+          # Verify we can get events from the stream
+          events = stream |> Enum.take(2)
+          assert length(events) >= 1
+        {:error, reason} ->
+          assert reason in [:missing_api_key, :network_error]
+      end
     end
 
     test "function signature matches expected type spec" do

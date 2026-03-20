@@ -87,6 +87,24 @@ defmodule ExpiAi.Types do
     defstruct type: :image, data: "", mime_type: ""
   end
 
+  defmodule Tool do
+    @moduledoc """
+    Tool definition for function calling.
+    """
+    @type function_spec :: %{
+      name: String.t(),
+      description: String.t(),
+      parameters: map()
+    }
+
+    @type t :: %__MODULE__{
+      type: :function,
+      function: function_spec()
+    }
+
+    defstruct type: :function, function: %{}
+  end
+
   defmodule ToolCall do
     @moduledoc """
     Tool call content from AI models.
@@ -219,7 +237,7 @@ defmodule ExpiAi.Types do
     @type t :: %__MODULE__{
       system_prompt: String.t() | nil,
       messages: [message()],
-      tools: [map()] | nil
+      tools: [Tool.t()] | nil
     }
 
     defstruct system_prompt: nil, messages: [], tools: nil

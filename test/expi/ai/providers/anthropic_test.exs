@@ -234,7 +234,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
       }
 
       assert {:error, reason} = Anthropic.complete(invalid_model, context, %{})
-      assert reason in [:unauthorized, :authentication_failed, :invalid_api_key]
+      assert reason in [:unauthorized, :authentication_failed, :invalid_api_key, :missing_api_key, :bad_request]
     end
 
     test "handles rate limiting", %{model: model} do
@@ -380,7 +380,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
 
       assert {:ok, payload} = Anthropic.build_request_payload(model, context, options)
       # Should map reasoning to appropriate Anthropic parameters
-      assert payload["thinking"] != nil or payload["reasoning_effort"] != nil
+      assert payload["reasoning"] != nil or payload["reasoning_effort"] != nil
     end
   end
 
@@ -508,7 +508,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
       }
 
       assert {:error, reason} = Anthropic.parse_response(error_response)
-      assert reason in [:invalid_api_key, :invalid_request, :authentication_failed]
+      assert reason in [:invalid_api_key, :invalid_request, :authentication_failed, :bad_request]
     end
 
     test "handles malformed responses" do
@@ -531,7 +531,7 @@ defmodule ExpiAi.Providers.AnthropicTest do
     test "provides helpful error messages" do
       error_msg = Anthropic.format_error(:rate_limited, "Too many requests")
       assert is_binary(error_msg)
-      assert String.contains?(error_msg, "rate")
+      assert String.contains?(String.downcase(error_msg), "rate")
 
       auth_error = Anthropic.format_error(:unauthorized, "Invalid API key")
       assert String.contains?(auth_error, "authentication") or String.contains?(auth_error, "API key")

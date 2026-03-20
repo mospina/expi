@@ -52,10 +52,10 @@ defmodule ExpiAi.Providers.Anthropic do
     messages = format_anthropic_messages(context.messages)
 
     payload = %{
-      model: model.id,
-      messages: messages,
-      max_tokens: merged_options.max_tokens,
-      temperature: merged_options.temperature
+      "model" => model.id,
+      "messages" => messages,
+      "max_tokens" => merged_options.max_tokens,
+      "temperature" => merged_options.temperature
     }
 
     payload = maybe_add_system_prompt(payload, context.system_prompt)
@@ -113,6 +113,7 @@ defmodule ExpiAi.Providers.Anthropic do
   def map_http_error(429), do: :rate_limited
   def map_http_error(500), do: :server_error
   def map_http_error(503), do: :service_unavailable
+  def map_http_error(529), do: :service_unavailable
   def map_http_error(_), do: :unknown_error
 
   @doc """
@@ -195,26 +196,26 @@ defmodule ExpiAi.Providers.Anthropic do
   defp maybe_add_system_prompt(payload, nil), do: payload
   defp maybe_add_system_prompt(payload, ""), do: payload
   defp maybe_add_system_prompt(payload, system_prompt) do
-    Map.put(payload, :system, system_prompt)
+    Map.put(payload, "system", system_prompt)
   end
 
   defp maybe_add_tools(payload, nil), do: payload
   defp maybe_add_tools(payload, []), do: payload
   defp maybe_add_tools(payload, tools) do
     formatted_tools = Enum.map(tools, &format_tool/1)
-    Map.put(payload, :tools, formatted_tools)
+    Map.put(payload, "tools", formatted_tools)
   end
 
   defp format_tool(%{name: name, description: desc, input_schema: schema}) do
     %{
-      name: name,
-      description: desc,
-      input_schema: schema
+      "name" => name,
+      "description" => desc,
+      "input_schema" => schema
     }
   end
 
   defp maybe_add_reasoning(payload, %{reasoning: reasoning}) when reasoning in ["high", "medium", "low"] do
-    Map.put(payload, :reasoning, reasoning)
+    Map.put(payload, "reasoning", reasoning)
   end
   defp maybe_add_reasoning(payload, _), do: payload
 
@@ -282,9 +283,38 @@ defmodule ExpiAi.Providers.Anthropic do
     }
   end
 
+  @doc """
+  Streams a conversation using Anthropic's API.
+  """
+  @spec stream(Model.t(), Context.t(), map()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  def stream(model, context, options \\ %{}) do
+    with :ok <- Base.validate_model(model),
+         :ok <- Base.validate_context(context),
+         :ok <- Base.validate_options(options) do
+      # In a real implementation, this would establish an SSE connection
+      # For now, return a stub stream
+      stream = create_stub_stream(model, context)
+      {:ok, stream}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp create_stub_stream(_model, _context) do
+    Stream.unfold(0, fn
+      0 -> {%ExpiAi.Types.AssistantMessageEvent{type: :start}, 1}
+      1 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_start, content_index: 0}, 2}
+      2 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: "Hello"}, 3}
+      3 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: " world"}, 4}
+      4 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_end, content_index: 0}, 5}
+      5 -> {%ExpiAi.Types.AssistantMessageEvent{type: :done, reason: :stop}, nil}
+      nil -> nil
+    end)
+  end
+
   defp parse_stop_reason("end_turn"), do: :stop
   defp parse_stop_reason("max_tokens"), do: :max_tokens
   defp parse_stop_reason("stop_sequence"), do: :stop_sequence
-  defp parse_stop_reason("tool_use"), do: :tool_calls
+  defp parse_stop_reason("tool_use"), do: :tool_use
   defp parse_stop_reason(_), do: :unknown
 end

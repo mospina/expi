@@ -76,13 +76,16 @@ defmodule ExpiAi.Providers.Ollama do
   end
 
   def parse_response(%{
-    "choices" => [%{"message" => message} | _],
+    "choices" => [choice | _],
     "usage" => usage,
     "model" => model_id
   }) do
+    message = choice["message"]
+    finish_reason = Map.get(choice, "finish_reason")
+    
     parsed_content = parse_ollama_message(message)
     usage_struct = parse_ollama_usage(usage)
-    stop_reason = parse_ollama_finish_reason(message["finish_reason"])
+    stop_reason = parse_ollama_finish_reason(finish_reason)
 
     response = %AssistantMessage{
       role: :assistant,
@@ -98,6 +101,7 @@ defmodule ExpiAi.Providers.Ollama do
     {:ok, response}
   end
 
+  def parse_response(%{"choices" => []}), do: {:error, :no_choices}
   def parse_response(_), do: {:error, :invalid_response}
 
   @doc """
@@ -238,14 +242,28 @@ defmodule ExpiAi.Providers.Ollama do
     }
   end
 
+  # Handle pre-formatted tool (already in OpenAI format)
+  defp format_ollama_tool(%{type: "function", function: function}) do
+    %{
+      "type" => "function",
+      "function" => function
+    }
+  end
+
+  defp parse_ollama_message(%{"content" => content, "tool_calls" => tool_calls}) when is_nil(content) or content == "" do
+    # If no text content, just return tool calls
+    Enum.map(tool_calls, &parse_tool_call/1)
+  end
+
   defp parse_ollama_message(%{"content" => content, "tool_calls" => tool_calls}) do
+    # If there's both text and tool calls, include both
     text_content = [%TextContent{type: :text, text: content}]
     tool_call_content = Enum.map(tool_calls, &parse_tool_call/1)
     text_content ++ tool_call_content
   end
 
   defp parse_ollama_message(%{"content" => content}) do
-    [%TextContent{type: :text, text: content}]
+    [%TextContent{type: :text, text: content || ""}]
   end
 
   defp parse_tool_call(%{"id" => id, "function" => %{"name" => name, "arguments" => args}}) do
@@ -282,9 +300,39 @@ defmodule ExpiAi.Providers.Ollama do
     }
   end
 
+  @doc """
+  Streams a conversation using Ollama's API.
+  """
+  @spec stream(Model.t(), Context.t(), map()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  def stream(model, context, options \\ %{}) do
+    with :ok <- Base.validate_model(model),
+         :ok <- Base.validate_context(context),
+         :ok <- Base.validate_options(options) do
+      # In a real implementation, this would establish an SSE connection
+      # For now, return a stub stream
+      stream = create_stub_stream(model, context)
+      {:ok, stream}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp create_stub_stream(_model, _context) do
+    Stream.unfold(0, fn
+      0 -> {%ExpiAi.Types.AssistantMessageEvent{type: :start}, 1}
+      1 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_start, content_index: 0}, 2}
+      2 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: "Ollama"}, 3}
+      3 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: " local response"}, 4}
+      4 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_end, content_index: 0}, 5}
+      5 -> {%ExpiAi.Types.AssistantMessageEvent{type: :done, reason: :stop}, nil}
+      nil -> nil
+    end)
+  end
+
   defp parse_ollama_finish_reason("stop"), do: :stop
-  defp parse_ollama_finish_reason("length"), do: :max_tokens
-  defp parse_ollama_finish_reason("tool_calls"), do: :tool_calls
+  defp parse_ollama_finish_reason("length"), do: :length
+  defp parse_ollama_finish_reason("tool_calls"), do: :tool_use
   defp parse_ollama_finish_reason("content_filter"), do: :content_filter
+  defp parse_ollama_finish_reason(nil), do: :stop  # Default when no finish_reason provided
   defp parse_ollama_finish_reason(_), do: :unknown
 end

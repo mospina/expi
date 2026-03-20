@@ -315,8 +315,37 @@ defmodule ExpiAi.Providers.Gemini do
   defp parse_gemini_stop_reason("MAX_TOKENS"), do: :max_tokens
   defp parse_gemini_stop_reason("SAFETY"), do: :content_filter
   defp parse_gemini_stop_reason("RECITATION"), do: :content_filter
-  defp parse_gemini_stop_reason("FUNCTION_CALL"), do: :tool_calls
+  defp parse_gemini_stop_reason("FUNCTION_CALL"), do: :tool_use
   defp parse_gemini_stop_reason(_), do: :unknown
+
+  @doc """
+  Streams a conversation using Google's Gemini API.
+  """
+  @spec stream(Model.t(), Context.t(), map()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  def stream(model, context, options \\ %{}) do
+    with :ok <- Base.validate_model(model),
+         :ok <- Base.validate_context(context),
+         :ok <- Base.validate_options(options) do
+      # In a real implementation, this would establish an SSE connection
+      # For now, return a stub stream
+      stream = create_stub_stream(model, context)
+      {:ok, stream}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp create_stub_stream(_model, _context) do
+    Stream.unfold(0, fn
+      0 -> {%ExpiAi.Types.AssistantMessageEvent{type: :start}, 1}
+      1 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_start, content_index: 0}, 2}
+      2 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: "Gemini"}, 3}
+      3 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_delta, content_index: 0, delta: " response"}, 4}
+      4 -> {%ExpiAi.Types.AssistantMessageEvent{type: :text_end, content_index: 0}, 5}
+      5 -> {%ExpiAi.Types.AssistantMessageEvent{type: :done, reason: :stop}, nil}
+      nil -> nil
+    end)
+  end
 
   defp generate_tool_call_id do
     "call_#{:rand.uniform(100_000_000)}"

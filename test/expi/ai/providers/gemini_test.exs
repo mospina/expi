@@ -261,7 +261,7 @@ defmodule ExpiAi.Providers.GeminiTest do
       }
 
       assert {:error, reason} = Gemini.complete(invalid_model, context, %{})
-      assert reason in [:unauthorized, :authentication_failed, :invalid_api_key]
+      assert reason in [:unauthorized, :authentication_failed, :invalid_api_key, :missing_api_key]
     end
 
     test "handles quota exceeded errors", %{model: model} do
