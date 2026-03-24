@@ -88,7 +88,7 @@ defmodule Expi.AI.Auth do
 
   defp build_auth_headers("anthropic", api_key) do
     [
-      {"Authorization", "Bearer #{api_key}"},
+      {"x-api-key", api_key},
       {"Content-Type", "application/json"},
       {"anthropic-version", "2023-06-01"}
     ]
@@ -96,7 +96,7 @@ defmodule Expi.AI.Auth do
 
   defp build_auth_headers("google", api_key) do
     [
-      {"Authorization", "Bearer #{api_key}"},
+      {"x-goog-api-key", api_key},
       {"Content-Type", "application/json"}
     ]
   end

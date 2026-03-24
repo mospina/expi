@@ -56,7 +56,7 @@ defmodule Expi.Application do
 
     # Setup streaming pool for Server-Sent Events
     stream_pool_config = Keyword.get(pool_configs, :ai_stream_pool, [
-      timeout: :infinity,
+      timeout: 300_000,  # 5 minutes in milliseconds
       max_connections: 50,
       pool_size: 25
     ])

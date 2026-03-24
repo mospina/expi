@@ -150,8 +150,11 @@ defmodule Expi.Providers.Anthropic do
         Base.parse_json_safely(response_body)
       {:ok, %{status: status, body: body}} ->
         case Base.parse_json_safely(body) do
-          {:ok, error_response} -> {:error, {status, error_response}}
-          {:error, _} -> Base.handle_http_error(status, body)
+          {:ok, error_response} -> 
+            # Pass the parsed error response for handling by parse_response
+            {:ok, error_response}
+          {:error, _} -> 
+            Base.handle_http_error(status, body)
         end
       {:error, reason} ->
         {:error, reason}
@@ -295,20 +298,17 @@ defmodule Expi.Providers.Anthropic do
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
       
-      # Use production streaming if available, fallback to demo stream
-      case Expi.AI.Streaming.create_production_stream(url, headers, "anthropic", model.id) do
-        {:ok, stream} ->
-          # Transform Anthropic SSE events to standardized events
-          transformed_stream = 
-            stream
-            |> Stream.map(fn event -> transform_anthropic_event(event, payload) end)
-            |> Stream.filter(fn event -> not is_nil(event) end)
-          
-          {:ok, transformed_stream}
+      # Attempt production streaming - if it fails, return the error
+      body = Jason.encode!(payload)
+      case Expi.AI.Streaming.create_production_stream(url, body, headers, "anthropic", model.id) do
+        {:ok, event_stream} ->
+          # create_production_stream already converts to AssistantMessageEvent format
+          # No additional transformation needed
+          {:ok, event_stream}
         
-        {:error, _reason} ->
-          # Fallback to realistic demo stream for testing
-          Expi.AI.Streaming.create_fallback_stream("anthropic", model.id)
+        {:error, reason} ->
+          # Return the actual error (missing API key, network issues, etc.)
+          {:error, reason}
       end
     else
       {:error, reason} -> {:error, reason}
@@ -340,10 +340,7 @@ defmodule Expi.Providers.Anthropic do
     {:ok, url}
   end
 
-  defp transform_anthropic_event(sse_event, _payload) do
-    # Parse Anthropic-specific SSE event format and convert to standardized AssistantMessageEvent
-    Expi.AI.Streaming.standardize_event(sse_event, "anthropic")
-  end
+
 
   defp parse_stop_reason("end_turn"), do: :stop
   defp parse_stop_reason("max_tokens"), do: :max_tokens

@@ -45,15 +45,16 @@ defmodule Expi.AI.Streaming do
   @doc """
   Creates a production streaming enumerable from HTTP SSE stream.
   """
-  @spec create_production_stream(String.t(), list(), String.t(), String.t()) :: {:ok, Enumerable.t()} | {:error, atom()}
-  def create_production_stream(url, headers, provider, model_id) do
-    case Expi.AI.HttpClient.get_stream(url, headers) do
+  @spec create_production_stream(String.t(), String.t(), list(), String.t(), String.t()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  def create_production_stream(url, body, headers, provider, model_id) do
+    case Expi.AI.HttpClient.stream_post(url, body, headers) do
       {:ok, http_stream} ->
         event_stream = 
           http_stream
+          |> accumulate_sse_chunks()
           |> Stream.flat_map(&parse_sse_chunk/1)
           |> Stream.filter(fn event -> event != :skip and not is_nil(event) end)
-          |> Stream.map(fn sse_event -> convert_sse_to_assistant_event(sse_event, provider, model_id) end)
+          |> Stream.map(fn sse_event -> standardize_event(sse_event, provider) end)
           |> Stream.filter(fn event -> not is_nil(event) end)
           |> add_telemetry_tracking(provider, model_id)
         
@@ -62,6 +63,42 @@ defmodule Expi.AI.Streaming do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @doc """
+  Accumulates HTTP chunks into complete SSE events.
+  
+  HTTP streaming can send partial chunks, but SSE events need complete
+  data blocks ending with double newlines.
+  """
+  @spec accumulate_sse_chunks(Enumerable.t()) :: Enumerable.t()
+  def accumulate_sse_chunks(http_stream) do
+    http_stream
+    |> Stream.transform("", fn chunk, buffer ->
+      # Accumulate chunks in buffer
+      new_buffer = buffer <> chunk
+      
+      # Split on double newlines to find complete events
+      parts = String.split(new_buffer, "\n\n")
+      
+      case parts do
+        [incomplete] ->
+          # No complete events yet, keep accumulating
+          {[], incomplete}
+        
+        parts_list when length(parts_list) > 1 ->
+          # Last part might be incomplete, others are complete events
+          {remaining_buffer, complete_parts} = List.pop_at(parts_list, -1)
+          
+          # Add back double newlines to complete events (except empty ones)
+          complete_events = 
+            complete_parts
+            |> Enum.reject(&(String.trim(&1) == ""))
+            |> Enum.map(&(&1 <> "\n\n"))
+          
+          {complete_events, remaining_buffer || ""}
+      end
+    end)
   end
 
   @doc """

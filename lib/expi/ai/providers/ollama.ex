@@ -312,20 +312,21 @@ defmodule Expi.Providers.Ollama do
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
       
-      # Use production streaming if available, fallback to demo stream
-      case Expi.AI.Streaming.create_production_stream(url, headers, "ollama", model.id) do
-        {:ok, stream} ->
+      # Attempt production streaming - if it fails, return the error
+      body = Jason.encode!(payload)
+      case Expi.AI.Streaming.create_production_stream(url, body, headers, "ollama", model.id) do
+        {:ok, raw_stream} ->
           # Transform Ollama SSE events to standardized events
           transformed_stream = 
-            stream
+            raw_stream
             |> Stream.map(fn event -> transform_ollama_event(event, payload) end)
             |> Stream.filter(fn event -> not is_nil(event) end)
           
           {:ok, transformed_stream}
         
-        {:error, _reason} ->
-          # Fallback to realistic demo stream for testing
-          Expi.AI.Streaming.create_fallback_stream("ollama", model.id)
+        {:error, reason} ->
+          # Return the actual error (connection refused, missing API key, network issues, etc.)
+          {:error, reason}
       end
     else
       {:error, reason} -> {:error, reason}

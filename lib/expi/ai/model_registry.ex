@@ -224,8 +224,8 @@ defmodule Expi.ModelRegistry do
 
   defp claude_opus_4_5 do
     %Model{
-      id: "claude-opus-4-5",
-      name: "Claude Opus 4.5",
+      id: "claude-3-opus-20240229",
+      name: "Claude 3 Opus",
       api: "anthropic-messages",
       provider: "anthropic",
       base_url: "https://api.anthropic.com",
@@ -246,8 +246,8 @@ defmodule Expi.ModelRegistry do
 
   defp claude_sonnet_3_6 do
     %Model{
-      id: "claude-sonnet-3-6",
-      name: "Claude Sonnet 3.6",
+      id: "claude-sonnet-4-20250514",
+      name: "Claude Sonnet 4",
       api: "anthropic-messages",
       provider: "anthropic",
       base_url: "https://api.anthropic.com",

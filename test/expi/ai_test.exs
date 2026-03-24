@@ -180,7 +180,7 @@ defmodule Expi.AITest do
 
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
-          assert is_function(stream, 2)  # Stream should be an enumerable function
+          assert Enumerable.impl_for(stream) != nil  # Stream should be enumerable
           # Test that we can actually enumerate events
           events = stream |> Enum.take(3)
           assert length(events) == 3
@@ -206,7 +206,7 @@ defmodule Expi.AITest do
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
           # Should return a valid stream
-          assert is_function(stream, 2)
+          assert Enumerable.impl_for(stream) != nil
           # Verify we can get events from the stream
           events = stream |> Enum.take(2)
           assert length(events) >= 1
