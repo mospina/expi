@@ -7,7 +7,7 @@ defmodule Expi.Agent.Types do
   with agent-specific types.
   """
   
-  alias Expi.Types.{Model, Usage, Cost}
+  alias Expi.Types.Model
 
   # Thinking level for AI reasoning
   @type thinking_level :: :off | :minimal | :low | :medium | :high | :xhigh
@@ -29,7 +29,7 @@ defmodule Expi.Agent.Types do
     @type t :: %__MODULE__{
       system_prompt: String.t(),
       model: Model.t(),
-      thinking_level: thinking_level(),
+      thinking_level: Expi.Agent.Types.thinking_level(),
       tools: [AgentTool.t()],
       messages: [AgentMessage.t()],
       is_streaming: boolean(),
@@ -316,7 +316,7 @@ defmodule Expi.Agent.Types do
 
     @type t :: %__MODULE__{
       system_prompt: String.t(),
-      messages: [agent_message()],
+      messages: [Expi.Agent.Types.agent_message()],
       tools: [AgentTool.t()] | nil
     }
 
@@ -349,11 +349,11 @@ defmodule Expi.Agent.Types do
     @type stream_fn :: (Model.t(), Expi.Types.Context.t(), map() -> 
                        {:ok, Enumerable.t()} | {:error, atom()})
     
-    @type convert_fn :: ([agent_message()] -> [Expi.Types.message()] | 
+    @type convert_fn :: ([Expi.Agent.Types.agent_message()] -> [Expi.Types.message()] | 
                         {:ok, [Expi.Types.message()]} | {:error, atom()})
     
-    @type transform_fn :: ([agent_message()], pid() | nil -> 
-                          {:ok, [agent_message()]} | {:error, atom()})
+    @type transform_fn :: ([Expi.Agent.Types.agent_message()], pid() | nil -> 
+                          {:ok, [Expi.Agent.Types.agent_message()]} | {:error, atom()})
     
     @type auth_fn :: (String.t() -> String.t() | nil | {:ok, String.t()} | {:error, atom()})
     

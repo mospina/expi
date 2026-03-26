@@ -8,7 +8,7 @@ defmodule Expi.Agent.Tool do
   """
 
   alias Expi.Agent.Types.{AgentTool, AgentToolResult}
-  alias Expi.Types.{Tool, TextContent, ImageContent}
+  alias Expi.Types.Tool
 
   @doc """
   Creates a new AgentTool with validation.
@@ -35,66 +35,31 @@ defmodule Expi.Agent.Tool do
           },
           required: ["query"]
         },
-        "🔍 Web Search",
+        "Web Search",
         fn tool_call_id, params, _abort_signal, _update_callback ->
           query = params["query"]
-          results = perform_web_search(query, params["max_results"] || 5)
           
-          content = [%TextContent{
+          content = [%Expi.Types.TextContent{
             type: :text, 
-            text: "Found #{length(results)} results for '#{query}'"
+            text: "Found results for query: " <> query
           }]
           
-          {:ok, %AgentToolResult{content: content, details: results}}
+          {:ok, %AgentToolResult{content: content, details: %{query: query}}}
         end
       )
       
-      # Tool with streaming updates
+      # Tool with streaming updates  
       {:ok, file_tool} = AgentTool.new(
         "process_file",
-        "Process a large file with progress updates",
-        %{
-          type: :object,
-          properties: %{
-            file_path: %{type: :string}
-          },
-          required: ["file_path"]
-        },
-        "📁 File Processor",
-        fn tool_call_id, params, abort_signal, update_callback ->
-          file_path = params["file_path"]
-          
-          # Stream progress updates
-          Task.async(fn ->
-            1..100
-            |> Enum.each(fn progress ->
-              if Process.alive?(abort_signal) do
-                Process.exit(abort_signal, :aborted)
-              end
-              
-              if update_callback do
-                partial_result = %AgentToolResult{
-                  content: [%TextContent{
-                    type: :text,
-                    text: "Processing... #{progress}% complete"
-                  }],
-                  details: %{progress: progress, status: :processing}
-                }
-                update_callback.(partial_result)
-              end
-              
-              Process.sleep(100)  # Simulate work
-            end)
-            
-            {:ok, %AgentToolResult{
-              content: [%TextContent{
-                type: :text,
-                text: "File processing completed successfully"
-              }],
-              details: %{status: :completed, file_path: file_path}
-            }}
-          end)
-          |> Task.await()
+        "Process a large file with progress updates", 
+        %{type: :object, properties: %{file_path: %{type: :string}}},
+        "File Processor",
+        fn _tool_call_id, _params, _abort_signal, _update_callback ->
+          # Implementation would handle file processing with progress updates
+          {:ok, %AgentToolResult{
+            content: [%Expi.Types.TextContent{type: :text, text: "File processed"}],
+            details: %{status: :completed}
+          }}
         end
       )
       

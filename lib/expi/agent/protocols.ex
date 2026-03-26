@@ -7,55 +7,11 @@ defmodule Expi.Agent.Protocols do
   consistent behavior across different message implementations.
   """
 
-  @doc """
-  Protocol for agent messages, enabling extensible message types.
-  
-  The AgentMessage protocol allows applications to define custom
-  message types while ensuring they can be properly converted to
-  LLM-compatible messages and handled by the agent system.
-  
-  ## Core Message Types
-  
-  The protocol is implemented for the base Expi.Types message types:
-  - UserMessage
-  - AssistantMessage  
-  - ToolResultMessage
-  
-  ## Custom Message Types
-  
-  Applications can implement this protocol for custom message types
-  to extend the agent's capabilities:
-  
-      defmodule MyApp.NotificationMessage do
-        @derive [Jason.Encoder]
-        defstruct [:role, :content, :notification_type, :timestamp]
-        
-        def new(content, type) do
-          %__MODULE__{
-            role: :notification,
-            content: content,
-            notification_type: type,
-            timestamp: System.system_time(:millisecond)
-          }
-        end
-      end
-      
-      defimpl Expi.Agent.Protocols.AgentMessage, for: MyApp.NotificationMessage do
-        def to_llm_message(_notification) do
-          # Notifications are not sent to LLM
-          nil
-        end
-        
-        def message_type(_notification), do: :notification
-        
-        def timestamp(notification), do: notification.timestamp
-        
-        def content(notification), do: notification.content
-      end
-  
-  This enables the agent to handle notification messages in the conversation
-  flow while only sending relevant messages to the LLM.
-  """
+  # Protocol for agent messages, enabling extensible message types.
+  # 
+  # The AgentMessage protocol allows applications to define custom
+  # message types while ensuring they can be properly converted to
+  # LLM-compatible messages and handled by the agent system.
   defprotocol AgentMessage do
     @doc """
     Converts an agent message to an LLM-compatible message.
@@ -186,13 +142,10 @@ defmodule Expi.Agent.Protocols do
     end
   end
 
-  @doc """
-  Protocol for agent tool callbacks.
-  
-  Enables different callback implementations for tool execution
-  updates, allowing flexibility in how partial results are handled
-  during long-running tool operations.
-  """
+  # Protocol for agent tool callbacks.
+  # Enables different callback implementations for tool execution
+  # updates, allowing flexibility in how partial results are handled
+  # during long-running tool operations.
   defprotocol AgentToolCallback do
     @doc """
     Called when a tool produces a partial result during execution.
@@ -231,15 +184,12 @@ defmodule Expi.Agent.Protocols do
     def on_complete(callback, tool_call_id, final_result, is_error)
   end
 
-  @doc """
-  Simple callback implementation that sends messages to a process.
-  
-  Useful for GenServer-based architectures where tool updates
-  need to be sent as messages to a controlling process.
-  """
   defmodule ProcessCallback do
     @moduledoc """
-    Tool callback that sends updates to a process via messages.
+    Simple callback implementation that sends messages to a process.
+    
+    Useful for GenServer-based architectures where tool updates
+    need to be sent as messages to a controlling process.
     """
     
     @type t :: %__MODULE__{
@@ -293,15 +243,12 @@ defmodule Expi.Agent.Protocols do
     end
   end
 
-  @doc """
-  Function-based callback implementation.
-  
-  Allows simple function-based callbacks for tool updates,
-  useful for lightweight integrations and testing.
-  """
   defmodule FunctionCallback do
     @moduledoc """
-    Tool callback that executes functions for updates and completion.
+    Function-based callback implementation.
+    
+    Allows simple function-based callbacks for tool updates,
+    useful for lightweight integrations and testing.
     """
     
     @type update_fn :: (String.t(), Expi.Agent.Types.AgentToolResult.t() -> 
