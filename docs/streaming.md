@@ -800,4 +800,377 @@ MyApp.ConcurrentStreaming.stream_multiple(requests)
 end)
 ```
 
-This streaming guide provides comprehensive coverage of ExpiAI's streaming capabilities, from basic usage to advanced patterns suitable for production applications.
+## Agent Streaming
+
+The Agent module provides high-level streaming with conversation state management and tool execution:
+
+### Basic Agent Streaming
+
+```elixir
+alias Expi.Agent
+alias Expi.AI
+
+# Create an agent
+{:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You are a helpful programming assistant"
+})
+
+# Stream a conversation turn
+{:ok, updated_agent, response} = Agent.stream_response(agent, fn event ->
+  case event.type do
+    :start ->
+      IO.puts("🤖 Assistant is responding...")
+    
+    :text_delta ->
+      IO.write(event.delta)
+    
+    :tool_start ->
+      IO.puts("\n🛠️ Using tool: #{event.tool_name}")
+    
+    :tool_end ->
+      IO.puts("✅ Tool completed: #{event.tool_name}")
+    
+    :done ->
+      IO.puts("\n🎯 Response complete!")
+    
+    :error ->
+      IO.puts("\n❌ Error: #{event.error}")
+  end
+end)
+
+# Agent automatically maintains conversation state
+messages = Agent.get_messages(updated_agent)
+IO.puts("Conversation now has #{length(messages)} messages")
+```
+
+### Agent Tool Streaming
+
+```elixir
+# Create an agent with tools
+search_tool = create_search_tool()
+calculator = create_calculator_tool()
+
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You can search the web and perform calculations",
+  tools: [search_tool, calculator]
+})
+
+# Stream with tool execution
+{:ok, agent, _response} = Agent.stream_response(agent, fn event ->
+  case event.type do
+    :text_delta ->
+      IO.write(event.delta)
+    
+    :tool_start ->
+      IO.puts("\n🔧 Executing #{event.tool_name} with args: #{inspect(event.args)}")
+    
+    :tool_progress ->
+      IO.puts("⚙️  Tool progress: #{event.progress}")
+    
+    :tool_end ->
+      IO.puts("✅ Tool #{event.tool_name} completed")
+      IO.puts("📊 Result: #{inspect(event.result)}")
+    
+    :tool_error ->
+      IO.puts("❌ Tool #{event.tool_name} failed: #{event.error}")
+  end
+end)
+```
+
+### Agent Event Monitoring
+
+```elixir
+# Create a comprehensive event handler for agents
+event_handler = fn event ->
+  timestamp = DateTime.utc_now() |> DateTime.to_string()
+  
+  case event.type do
+    # Agent lifecycle
+    :agent_start ->
+      IO.puts("[#{timestamp}] 🎯 Agent started processing")
+    
+    :agent_end ->
+      IO.puts("[#{timestamp}] 🏁 Agent completed (#{event.duration_ms}ms)")
+    
+    # Turn processing  
+    :turn_start ->
+      IO.puts("[#{timestamp}] 🔄 Turn started with #{length(event.messages)} messages")
+    
+    :turn_end ->
+      IO.puts("[#{timestamp}] ✅ Turn completed")
+      IO.puts("  Messages processed: #{event.messages_processed}")
+      IO.puts("  Tools executed: #{event.tools_executed}")
+      IO.puts("  Total cost: $#{event.total_cost}")
+    
+    # Message processing
+    :message_start ->
+      IO.puts("[#{timestamp}] 💬 Processing message: #{event.message_type}")
+    
+    :message_end ->
+      IO.puts("[#{timestamp}] ✅ Message processed")
+    
+    # Tool execution
+    :tool_start ->
+      IO.puts("[#{timestamp}] 🛠️ Tool started: #{event.tool_name}")
+    
+    :tool_end ->
+      duration = event.duration_ms
+      status = if event.is_error, do: "❌ failed", else: "✅ succeeded"
+      IO.puts("[#{timestamp}] 🏁 Tool #{event.tool_name} #{status} (#{duration}ms)")
+    
+    # Streaming content
+    :text_delta ->
+      IO.write(event.delta)
+    
+    :thinking_delta ->
+      IO.write("[thinking: #{event.delta}]")
+    
+    _ ->
+      :ok
+  end
+end
+
+# Use with agent processing
+{:ok, agent, turn_data} = Agent.process_turn(agent, %{
+  event_callback: event_handler
+})
+```
+
+### Agent Streaming with State Persistence
+
+```elixir
+defmodule MyApp.PersistentAgentStreaming do
+  def stream_with_persistence(agent_id, message) do
+    # Load agent state
+    case load_agent(agent_id) do
+      {:ok, agent} ->
+        # Stream response with state updates
+        callback = fn event ->
+          case event.type do
+            :text_delta ->
+              broadcast_to_client(agent_id, :text_delta, event.delta)
+            
+            :done ->
+              # Save updated agent state
+              save_agent(agent_id, event.updated_agent)
+              broadcast_to_client(agent_id, :done, nil)
+            
+            :error ->
+              broadcast_to_client(agent_id, :error, event.error)
+          end
+        end
+        
+        case Agent.stream_response(agent, callback) do
+          {:ok, updated_agent, response} ->
+            save_agent(agent_id, updated_agent)
+            {:ok, response}
+          
+          error ->
+            error
+        end
+      
+      error ->
+        error
+    end
+  end
+
+  defp load_agent(agent_id) do
+    # Load from your persistence layer (database, ETS, etc.)
+    case MyApp.AgentStore.get(agent_id) do
+      nil -> {:error, :not_found}
+      agent_data -> {:ok, deserialize_agent(agent_data)}
+    end
+  end
+
+  defp save_agent(agent_id, agent) do
+    # Save to your persistence layer
+    agent_data = serialize_agent(agent)
+    MyApp.AgentStore.put(agent_id, agent_data)
+  end
+
+  defp broadcast_to_client(agent_id, event_type, data) do
+    # Broadcast to WebSocket, Phoenix Channel, etc.
+    MyAppWeb.Endpoint.broadcast("agent:#{agent_id}", "stream_event", %{
+      type: event_type,
+      data: data
+    })
+  end
+
+  defp serialize_agent(agent) do
+    # Serialize agent state (excluding function references in tools)
+    %{
+      system_prompt: agent.system_prompt,
+      model: agent.model,
+      thinking_level: agent.thinking_level,
+      messages: agent.messages,
+      created_at: agent.created_at,
+      # Tools need special handling due to execute functions
+      tool_configs: extract_tool_configs(agent.tools)
+    }
+  end
+
+  defp deserialize_agent(agent_data) do
+    # Reconstruct agent with tools
+    {:ok, model} = Expi.AI.get_model(agent_data.model.provider, agent_data.model.id)
+    tools = reconstruct_tools(agent_data.tool_configs)
+    
+    Expi.Agent.State.new(model, %{
+      system_prompt: agent_data.system_prompt,
+      thinking_level: agent_data.thinking_level,
+      messages: agent_data.messages,
+      tools: tools
+    })
+  end
+
+  defp extract_tool_configs(tools) do
+    # Extract serializable tool configurations
+    Enum.map(tools, fn tool ->
+      %{
+        type: tool.type,
+        function: %{
+          name: tool.function.name,
+          description: tool.function.description,
+          parameters: tool.function.parameters
+        },
+        # Store tool type identifier to reconstruct execute function
+        tool_impl: determine_tool_impl(tool.function.name)
+      }
+    end)
+  end
+
+  defp reconstruct_tools(tool_configs) do
+    # Reconstruct tools with execute functions
+    Enum.map(tool_configs, fn config ->
+      execute_fn = get_tool_execute_function(config.tool_impl)
+      
+      %Expi.Agent.Types.AgentTool{
+        type: config.type,
+        function: config.function,
+        execute: execute_fn
+      }
+    end)
+  end
+
+  defp determine_tool_impl(tool_name) do
+    # Map tool names to implementation modules
+    case tool_name do
+      "search_web" -> :web_search_tool
+      "calculate" -> :calculator_tool
+      "read_file" -> :file_tool
+      _ -> :generic_tool
+    end
+  end
+
+  defp get_tool_execute_function(:web_search_tool), do: &MyApp.Tools.WebSearch.execute/4
+  defp get_tool_execute_function(:calculator_tool), do: &MyApp.Tools.Calculator.execute/4
+  defp get_tool_execute_function(:file_tool), do: &MyApp.Tools.FileOps.execute/4
+  defp get_tool_execute_function(:generic_tool), do: &MyApp.Tools.Generic.execute/4
+end
+
+# Usage
+case MyApp.PersistentAgentStreaming.stream_with_persistence("user_123", "Hello!") do
+  {:ok, response} ->
+    IO.puts("Response streamed successfully")
+  
+  {:error, reason} ->
+    IO.puts("Streaming failed: #{inspect(reason)}")
+end
+```
+
+### Agent Streaming Performance
+
+```elixir
+defmodule MyApp.PerformantAgentStreaming do
+  def high_performance_stream(agent, message, opts \\ []) do
+    buffer_size = Keyword.get(opts, :buffer_size, 100)
+    batch_interval = Keyword.get(opts, :batch_interval, 50)
+    
+    # Create buffered callback
+    buffered_callback = create_buffered_callback(buffer_size, batch_interval)
+    
+    case Agent.stream_response(agent, buffered_callback) do
+      {:ok, updated_agent, response} ->
+        # Flush any remaining buffered events
+        flush_buffer()
+        {:ok, updated_agent, response}
+      
+      error ->
+        error
+    end
+  end
+
+  defp create_buffered_callback(buffer_size, batch_interval) do
+    # Start buffer process
+    buffer_pid = spawn(fn -> event_buffer_loop([], buffer_size, batch_interval) end)
+    
+    fn event ->
+      send(buffer_pid, {:event, event})
+    end
+  end
+
+  defp event_buffer_loop(buffer, buffer_size, batch_interval) do
+    receive do
+      {:event, event} ->
+        new_buffer = [event | buffer]
+        
+        if length(new_buffer) >= buffer_size do
+          # Flush buffer
+          flush_events(Enum.reverse(new_buffer))
+          event_buffer_loop([], buffer_size, batch_interval)
+        else
+          event_buffer_loop(new_buffer, buffer_size, batch_interval)
+        end
+      
+      :flush ->
+        if length(buffer) > 0 do
+          flush_events(Enum.reverse(buffer))
+        end
+        event_buffer_loop([], buffer_size, batch_interval)
+    
+    after batch_interval ->
+      if length(buffer) > 0 do
+        flush_events(Enum.reverse(buffer))
+        event_buffer_loop([], buffer_size, batch_interval)
+      else
+        event_buffer_loop(buffer, buffer_size, batch_interval)
+      end
+    end
+  end
+
+  defp flush_events(events) do
+    # Group and process events efficiently
+    text_deltas = 
+      events
+      |> Enum.filter(&(&1.type == :text_delta))
+      |> Enum.map(& &1.delta)
+      |> Enum.join("")
+    
+    if text_deltas != "" do
+      IO.write(text_deltas)
+    end
+    
+    # Process other events
+    events
+    |> Enum.filter(&(&1.type != :text_delta))
+    |> Enum.each(&handle_event/1)
+  end
+
+  defp flush_buffer do
+    send(self(), :flush)
+  end
+
+  defp handle_event(event) do
+    case event.type do
+      :start -> IO.puts("🤖 Starting...")
+      :done -> IO.puts("\n✅ Complete!")
+      :tool_start -> IO.puts("\n🛠️ Tool: #{event.tool_name}")
+      :tool_end -> IO.puts("✅ Tool done")
+      :error -> IO.puts("\n❌ Error: #{event.error}")
+      _ -> :ok
+    end
+  end
+end
+```
+
+This streaming guide provides comprehensive coverage of ExpiAI's streaming capabilities, from basic AI module usage to advanced Agent streaming patterns suitable for production applications with state management, tool integration, and performance optimization.

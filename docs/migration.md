@@ -821,4 +821,444 @@ defmodule MyApp.AIAdapter do
 end
 ```
 
-This migration guide provides comprehensive coverage for transitioning ExpiAI from development to production and migrating from other AI libraries.
+## Migrating from AI Module to Agent Module
+
+The Agent module provides higher-level conversation orchestration built on top of the AI module. Here's how to migrate:
+
+### Basic AI to Agent Migration
+
+```elixir
+# Before (AI Module - Low Level)
+alias Expi.AI
+alias Expi.Types.{Context, UserMessage}
+
+{:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
+
+# Manual conversation management
+messages = []
+
+# First interaction
+context = %Context{
+  system_prompt: "You are a helpful assistant",
+  messages: [
+    %UserMessage{
+      role: :user,
+      content: "Hello, who are you?",
+      timestamp: System.system_time(:millisecond)
+    }
+  ]
+}
+
+{:ok, response1} = AI.complete_simple(model, context)
+messages = context.messages ++ [response1]
+
+# Second interaction - manually manage history
+context = %Context{
+  system_prompt: "You are a helpful assistant",
+  messages: messages ++ [
+    %UserMessage{
+      role: :user,
+      content: "What can you help me with?",
+      timestamp: System.system_time(:millisecond)
+    }
+  ]
+}
+
+{:ok, response2} = AI.complete_simple(model, context)
+
+# After (Agent Module - High Level)
+alias Expi.Agent
+
+{:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You are a helpful assistant"
+})
+
+# Automatic conversation management
+{:ok, agent, response1} = Agent.send_message(agent, "Hello, who are you?")
+{:ok, agent, response2} = Agent.send_message(agent, "What can you help me with?")
+
+# Agent automatically maintains conversation history
+messages = Agent.get_messages(agent)  # Full conversation available
+```
+
+### Tool/Function Call Migration
+
+```elixir
+# Before (AI Module - Manual Tool Handling)
+tools = [
+  %Expi.Types.Tool{
+    type: :function,
+    function: %{
+      name: "get_weather",
+      description: "Get weather for a location",
+      parameters: %{
+        type: :object,
+        properties: %{location: %{type: :string}},
+        required: ["location"]
+      }
+    }
+  }
+]
+
+context = %Context{
+  system_prompt: "You can check weather",
+  messages: [
+    %UserMessage{
+      role: :user,
+      content: "What's the weather in Paris?",
+      timestamp: System.system_time(:millisecond)
+    }
+  ],
+  tools: tools
+}
+
+{:ok, response} = AI.complete_simple(model, context)
+
+# Manually handle tool calls
+if length(response.tool_calls) > 0 do
+  tool_results = 
+    response.tool_calls
+    |> Enum.map(fn tool_call ->
+      case tool_call.name do
+        "get_weather" ->
+          args = Jason.decode!(tool_call.arguments)
+          result = get_weather(args["location"])
+          
+          %Expi.Types.ToolResult{
+            tool_call_id: tool_call.id,
+            content: [
+              %Expi.Types.TextContent{type: :text, text: result}
+            ]
+          }
+      end
+    end)
+  
+  # Continue conversation with tool results...
+  follow_up_context = %Context{
+    messages: context.messages ++ [response] ++ tool_results ++ [
+      %UserMessage{
+        role: :user,
+        content: "Thanks!",
+        timestamp: System.system_time(:millisecond)
+      }
+    ]
+  }
+  
+  {:ok, final_response} = AI.complete_simple(model, follow_up_context)
+end
+
+# After (Agent Module - Automatic Tool Handling)
+{:ok, weather_tool} = Expi.Agent.Tool.new(
+  "get_weather",
+  "Get weather for a location",
+  %{
+    type: :object,
+    properties: %{location: %{type: :string}},
+    required: ["location"]
+  },
+  "Weather Tool",
+  fn _tool_call_id, params, _abort_signal, _update_callback ->
+    location = params["location"]
+    weather_data = get_weather(location)
+    
+    {:ok, %Expi.Agent.Types.AgentToolResult{
+      content: [
+        %Expi.Types.TextContent{type: :text, text: weather_data}
+      ]
+    }}
+  end
+)
+
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You can check weather",
+  tools: [weather_tool]
+})
+
+# Tool calls are handled automatically
+{:ok, agent, response} = Agent.send_message(agent, "What's the weather in Paris?")
+# Agent automatically calls tool, incorporates results, and provides final response
+
+{:ok, agent, thanks_response} = Agent.send_message(agent, "Thanks!")
+# Conversation continues naturally
+```
+
+### Streaming Migration
+
+```elixir
+# Before (AI Module - Basic Streaming)
+{:ok, stream} = AI.stream_simple(model, context)
+
+accumulated_content = ""
+stream
+|> Stream.each(fn event ->
+  case event.type do
+    :text_delta -> 
+      accumulated_content = accumulated_content <> event.delta
+      IO.write(event.delta)
+    :done -> 
+      IO.puts("\n✅ Complete")
+      # Manually manage conversation state
+      messages = messages ++ [%{role: :assistant, content: accumulated_content}]
+    :error ->
+      IO.puts("❌ Error: #{event.error.message}")
+  end
+end)
+|> Stream.run()
+
+# After (Agent Module - State-Managed Streaming)
+{:ok, agent, response} = Agent.stream_response(agent, fn event ->
+  case event.type do
+    :text_delta -> 
+      IO.write(event.delta)
+    :tool_start ->
+      IO.puts("\n🛠️ Using #{event.tool_name}")
+    :tool_end ->
+      IO.puts("✅ Tool completed")
+    :done ->
+      IO.puts("\n🎯 Agent response complete")
+      # Conversation state automatically managed
+    :error ->
+      IO.puts("❌ Error: #{event.error}")
+  end
+end)
+
+# Agent state is automatically updated with the complete conversation
+```
+
+### State Management Migration
+
+```elixir
+# Before (Manual State Management)
+defmodule MyApp.ConversationState do
+  defstruct [
+    :model,
+    :system_prompt,
+    :messages,
+    :tools,
+    :created_at,
+    :total_cost
+  ]
+
+  def new(model, system_prompt) do
+    %__MODULE__{
+      model: model,
+      system_prompt: system_prompt,
+      messages: [],
+      tools: [],
+      created_at: System.system_time(:millisecond),
+      total_cost: 0.0
+    }
+  end
+
+  def add_message(state, message) do
+    %{state | messages: state.messages ++ [message]}
+  end
+
+  def add_response(state, response) do
+    new_cost = state.total_cost + (response.usage.cost.input + response.usage.cost.output)
+    %{state | 
+      messages: state.messages ++ [response],
+      total_cost: new_cost
+    }
+  end
+
+  def get_context(state) do
+    %Expi.Types.Context{
+      system_prompt: state.system_prompt,
+      messages: state.messages,
+      tools: state.tools
+    }
+  end
+end
+
+# Usage
+state = MyApp.ConversationState.new(model, "You are helpful")
+user_msg = %UserMessage{role: :user, content: "Hello", timestamp: System.system_time(:millisecond)}
+state = MyApp.ConversationState.add_message(state, user_msg)
+
+context = MyApp.ConversationState.get_context(state)
+{:ok, response} = AI.complete_simple(model, context)
+state = MyApp.ConversationState.add_response(state, response)
+
+# After (Agent Handles State Automatically)
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You are helpful"
+})
+
+{:ok, agent, response} = Agent.send_message(agent, "Hello")
+
+# All state management is automatic:
+messages = Agent.get_messages(agent)           # Get conversation history
+config = Agent.get_config(agent)              # Get agent configuration
+stats = Agent.get_stats(agent)                # Get usage statistics
+%{total_cost: total_cost} = stats              # Cost tracking included
+```
+
+### Error Handling Migration
+
+```elixir
+# Before (Manual Error Handling)
+defmodule MyApp.ResilientAI do
+  def safe_complete(model, context, max_retries \\ 3) do
+    do_complete(model, context, max_retries)
+  end
+
+  defp do_complete(model, context, 0) do
+    {:error, :max_retries_exceeded}
+  end
+
+  defp do_complete(model, context, retries_left) do
+    case AI.complete_simple(model, context) do
+      {:ok, response} ->
+        {:ok, response}
+      
+      {:error, :rate_limited} ->
+        Process.sleep(2000)
+        do_complete(model, context, retries_left - 1)
+      
+      {:error, :network_error} ->
+        Process.sleep(1000)
+        do_complete(model, context, retries_left - 1)
+      
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+end
+
+# After (Agent Has Built-in Resilience)
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You are helpful",
+  # Agent handles retries, rate limiting, and errors automatically
+})
+
+# Simple error handling with agents
+case Agent.send_message(agent, "Hello") do
+  {:ok, agent, response} ->
+    # Success - agent state automatically updated
+    handle_response(agent, response)
+  
+  {:error, :rate_limited} ->
+    # Agent already handled retries, this is final failure
+    schedule_retry_later()
+  
+  {:error, :network_error} ->
+    # Agent already retried network issues
+    handle_network_failure()
+  
+  {:error, reason} ->
+    handle_other_error(reason)
+end
+```
+
+### Event Monitoring Migration
+
+```elixir
+# Before (Manual Telemetry)
+defmodule MyApp.AITelemetry do
+  def track_request(start_time, end_time, provider, cost) do
+    duration = end_time - start_time
+    
+    :telemetry.execute(
+      [:my_app, :ai, :request],
+      %{duration: duration, cost: cost},
+      %{provider: provider}
+    )
+  end
+end
+
+# Manual tracking in every AI call
+start_time = System.monotonic_time(:millisecond)
+{:ok, response} = AI.complete_simple(model, context)
+end_time = System.monotonic_time(:millisecond)
+
+MyApp.AITelemetry.track_request(start_time, end_time, model.provider, 
+  response.usage.cost.input + response.usage.cost.output)
+
+# After (Agent Provides Rich Events)
+event_handler = fn event ->
+  case event.type do
+    :agent_start -> 
+      Logger.info("Agent processing started")
+    
+    :turn_start ->
+      Logger.info("Turn started with #{length(event.messages)} messages")
+    
+    :tool_start ->
+      Logger.info("Tool #{event.tool_name} started")
+    
+    :tool_end ->
+      Logger.info("Tool #{event.tool_name} completed in #{event.duration_ms}ms")
+    
+    :turn_end ->
+      Logger.info("Turn completed: #{event.messages_processed} messages, $#{event.total_cost}")
+    
+    :agent_end ->
+      Logger.info("Agent completed in #{event.duration_ms}ms")
+  end
+end
+
+# Rich event monitoring with single call
+{:ok, agent, turn_data} = Agent.process_turn(agent, %{
+  event_callback: event_handler
+})
+```
+
+### Migration Strategy
+
+1. **Gradual Migration**: Start with new features using Agent module
+2. **Wrapper Pattern**: Create adapters for existing AI module code
+3. **Side-by-Side**: Run both approaches during transition
+4. **Feature Parity**: Ensure Agent provides all needed functionality
+
+```elixir
+defmodule MyApp.AIWrapper do
+  @doc """
+  Wrapper to provide Agent-like interface while using AI module internally.
+  Use during migration period.
+  """
+  
+  def create_conversation(model, opts \\ []) do
+    system_prompt = Keyword.get(opts, :system_prompt, "You are helpful")
+    
+    %{
+      model: model,
+      system_prompt: system_prompt,
+      messages: [],
+      tools: Keyword.get(opts, :tools, [])
+    }
+  end
+  
+  def send_message(conversation, message) do
+    user_msg = %UserMessage{
+      role: :user,
+      content: message,
+      timestamp: System.system_time(:millisecond)
+    }
+    
+    context = %Context{
+      system_prompt: conversation.system_prompt,
+      messages: conversation.messages ++ [user_msg],
+      tools: conversation.tools
+    }
+    
+    case AI.complete_simple(conversation.model, context) do
+      {:ok, response} ->
+        updated_conversation = %{conversation |
+          messages: context.messages ++ [response]
+        }
+        {:ok, updated_conversation, response}
+      
+      error ->
+        error
+    end
+  end
+end
+
+# Migrate incrementally
+# conversation = MyApp.AIWrapper.create_conversation(model)  # Old wrapper
+# {:ok, agent} = Agent.create(model)                         # New agent approach
+```
+
+This migration guide provides comprehensive coverage for transitioning ExpiAI from development to production and migrating from other AI libraries, including upgrading from the low-level AI module to the high-level Agent module.

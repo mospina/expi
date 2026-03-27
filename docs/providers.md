@@ -717,4 +717,157 @@ MyApp.CostTracker.track_usage(model.provider, model.model_id, response.usage)
 IO.puts("Today's AI cost: $#{Float.round(cost, 4)}")
 ```
 
-This provider guide gives you detailed information to make informed decisions about which AI provider and model to use for different scenarios, along with practical strategies for cost optimization.
+## Agent Compatibility
+
+All providers are fully compatible with the ExpiAI Agent module, providing high-level conversation orchestration:
+
+### Claude with Agent
+
+Claude works excellently with the Agent module, especially for reasoning-heavy tasks:
+
+```elixir
+alias Expi.Agent
+
+{:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")
+{:ok, agent} = Agent.create(model, %{
+  system_prompt: "You are a research analyst with access to analysis tools",
+  thinking_level: :high,  # Enable Claude's reasoning mode
+  tools: [analysis_tool, search_tool]
+})
+
+# Agent automatically handles tool calls and reasoning
+{:ok, agent, response} = Agent.send_message(agent, "Analyze the market trends for renewable energy")
+
+# Access Claude's reasoning process
+case response.reasoning_content do
+  nil -> IO.puts("No reasoning available")
+  thinking -> IO.puts("Claude's thinking: #{thinking}")
+end
+```
+
+### Gemini with Agent
+
+Gemini excels in Agent workflows with multi-modal inputs:
+
+```elixir
+{:ok, vision_model} = AI.get_model("google", "gemini-pro-vision")
+{:ok, agent} = Agent.create(vision_model, %{
+  system_prompt: "You are a visual analysis assistant",
+  tools: [image_processing_tool, chart_analyzer]
+})
+
+# Agent can handle mixed text and image inputs
+{:ok, agent, response} = Agent.send_message(agent, [
+  %{type: :text, text: "Analyze this business chart"},
+  %{type: :image, source: %{type: :base64, media_type: "image/png", data: chart_data}}
+])
+```
+
+### Ollama with Agent
+
+Local models work seamlessly with Agent for privacy-focused applications:
+
+```elixir
+{:ok, local_model} = AI.get_model("ollama", "llama3.1:8b")
+{:ok, agent} = Agent.create(local_model, %{
+  system_prompt: "You are a private coding assistant",
+  tools: [code_analyzer, local_search_tool]
+})
+
+# All processing stays local
+{:ok, agent, response} = Agent.send_message(agent, "Help me refactor this function")
+
+# No data leaves your machine
+IO.puts("Response generated locally: #{extract_content(response)}")
+```
+
+### Cross-Provider Agent Workflows
+
+You can even create multi-agent workflows using different providers:
+
+```elixir
+defmodule MyApp.MultiProviderWorkflow do
+  def create_research_team do
+    # Claude for deep analysis
+    {:ok, claude} = AI.get_model("anthropic", "claude-opus-4-5")
+    {:ok, analyst} = Agent.create(claude, %{
+      system_prompt: "You are a research analyst",
+      thinking_level: :high
+    })
+    
+    # Gemini for visual tasks
+    {:ok, gemini} = AI.get_model("google", "gemini-pro-vision")
+    {:ok, visual_agent} = Agent.create(gemini, %{
+      system_prompt: "You analyze images and charts",
+      tools: [chart_reader, image_analyzer]
+    })
+    
+    # Ollama for code tasks (private)
+    {:ok, llama} = AI.get_model("ollama", "codellama:7b")
+    {:ok, coder} = Agent.create(llama, %{
+      system_prompt: "You generate and analyze code",
+      tools: [code_executor, linter]
+    })
+    
+    %{analyst: analyst, visual_agent: visual_agent, coder: coder}
+  end
+
+  def collaborative_analysis(team, task) do
+    # Step 1: Analyst does research
+    {:ok, analyst, analysis} = Agent.send_message(team.analyst, 
+      "Research and analyze: #{task}")
+    
+    # Step 2: Visual agent processes any charts/images
+    {:ok, visual_agent, visual_analysis} = Agent.send_message(team.visual_agent, 
+      "Process visual data for: #{extract_content(analysis)}")
+    
+    # Step 3: Coder generates implementation (local)
+    {:ok, coder, implementation} = Agent.send_message(team.coder, 
+      "Generate code based on: #{extract_content(visual_analysis)}")
+    
+    %{
+      research: analysis,
+      visual_insights: visual_analysis,
+      implementation: implementation,
+      updated_team: %{
+        analyst: analyst,
+        visual_agent: visual_agent,
+        coder: coder
+      }
+    }
+  end
+end
+
+# Usage
+team = MyApp.MultiProviderWorkflow.create_research_team()
+results = MyApp.MultiProviderWorkflow.collaborative_analysis(team, 
+  "Build a data visualization dashboard")
+```
+
+### Agent Streaming Across Providers
+
+All providers support Agent streaming with consistent events:
+
+```elixir
+# Works with any provider
+stream_callback = fn event ->
+  case event.type do
+    :text_delta -> IO.write(event.delta)
+    :thinking_delta -> IO.write("[thinking: #{event.delta}]")  # Claude only
+    :tool_start -> IO.puts("\n🛠️ Tool: #{event.tool_name}")
+    :tool_end -> IO.puts("✅ Tool complete")
+    :done -> IO.puts("\n🎯 Complete!")
+  end
+end
+
+# Claude with reasoning
+{:ok, claude_agent, _} = Agent.stream_response(claude_agent, stream_callback)
+
+# Gemini with safety features  
+{:ok, gemini_agent, _} = Agent.stream_response(gemini_agent, stream_callback)
+
+# Ollama (local, private)
+{:ok, ollama_agent, _} = Agent.stream_response(ollama_agent, stream_callback)
+```
+
+This provider guide gives you detailed information to make informed decisions about which AI provider and model to use for different scenarios, along with practical strategies for cost optimization and Agent integration patterns.
