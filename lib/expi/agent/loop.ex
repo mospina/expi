@@ -161,7 +161,7 @@ defmodule Expi.Agent.Loop do
           
           Logger.info("Agent loop completed", %{
             turns_completed: final_loop_state.current_turn,
-            total_messages: State.message_count(final_state)
+            total_messages: length(final_state.messages)
           })
           
           {:ok, final_state}
@@ -311,7 +311,7 @@ defmodule Expi.Agent.Loop do
     %{
       current_turn: loop_state.current_turn,
       elapsed_time: elapsed_time,
-      message_count: State.message_count(loop_state.agent_state),
+      message_count: length(loop_state.agent_state.messages),
       pending_tool_calls: MapSet.size(State.get_pending_tool_calls(loop_state.agent_state)),
       steering_queue_size: length(loop_state.message_queue.steering),
       follow_up_queue_size: length(loop_state.message_queue.follow_up),
@@ -418,7 +418,7 @@ defmodule Expi.Agent.Loop do
     
     Logger.debug("Preparing turn", %{
       turn: updated_loop_state.current_turn,
-      message_count: State.message_count(loop_state.agent_state)
+      message_count: length(loop_state.agent_state.messages)
     })
     
     {:ok, updated_loop_state}
@@ -471,7 +471,7 @@ defmodule Expi.Agent.Loop do
     # Turn is complete
     Logger.debug("Turn completed", %{
       turn: loop_state.current_turn,
-      final_message_count: State.message_count(updated_loop_state.agent_state)
+      final_message_count: length(updated_loop_state.agent_state.messages)
     })
     
     {:ok, updated_loop_state}

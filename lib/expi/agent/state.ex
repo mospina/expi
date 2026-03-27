@@ -68,7 +68,11 @@ defmodule Expi.Agent.State do
       is_streaming: false,
       stream_message: nil,
       pending_tool_calls: MapSet.new(),
-      error: nil
+      error: nil,
+      created_at: System.system_time(:millisecond),
+      max_context_length: nil,
+      temperature: nil,
+      streaming: true
     }
     
     struct(default_state, overrides)

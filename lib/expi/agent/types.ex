@@ -35,7 +35,11 @@ defmodule Expi.Agent.Types do
       is_streaming: boolean(),
       stream_message: AgentMessage.t() | nil,
       pending_tool_calls: MapSet.t(String.t()),
-      error: String.t() | nil
+      error: String.t() | nil,
+      created_at: pos_integer(),
+      max_context_length: pos_integer() | nil,
+      temperature: float() | nil,
+      streaming: boolean()
     }
 
     defstruct [
@@ -47,7 +51,11 @@ defmodule Expi.Agent.Types do
       is_streaming: false,
       stream_message: nil,
       pending_tool_calls: MapSet.new(),
-      error: nil
+      error: nil,
+      created_at: nil,
+      max_context_length: nil,
+      temperature: nil,
+      streaming: true
     ]
 
     @doc """

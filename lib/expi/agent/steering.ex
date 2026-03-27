@@ -669,7 +669,7 @@ defmodule Expi.Agent.Steering do
   defp calculate_processing_capacity(agent_state) do
     # Simple capacity calculation based on current workload
     pending_tools = count_pending_tools(agent_state)
-    message_count = State.message_count(agent_state)
+    message_count = length(agent_state.messages)
     
     # Capacity decreases with more pending work
     base_capacity = 1.0
