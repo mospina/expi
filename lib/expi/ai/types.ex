@@ -1,7 +1,7 @@
 defmodule Expi.Types do
   @moduledoc """
   Core type definitions for the Expi AI module.
-  
+
   This module defines all the structs and types used throughout the AI module,
   following the architecture specifications from docs/architecture-analysis.md.
   """
@@ -12,11 +12,11 @@ defmodule Expi.Types do
     Represents token costs for input, output, cache operations.
     """
     @type t :: %__MODULE__{
-      input: float(),
-      output: float(),
-      cache_read: float(),
-      cache_write: float()
-    }
+            input: float(),
+            output: float(),
+            cache_read: float(),
+            cache_write: float()
+          }
 
     defstruct [:input, :output, :cache_read, :cache_write]
 
@@ -35,13 +35,13 @@ defmodule Expi.Types do
     Tracks token usage and associated costs for AI requests.
     """
     @type t :: %__MODULE__{
-      input: non_neg_integer(),
-      output: non_neg_integer(),
-      cache_read: non_neg_integer(),
-      cache_write: non_neg_integer(),
-      total_tokens: non_neg_integer(),
-      cost: Cost.t()
-    }
+            input: non_neg_integer(),
+            output: non_neg_integer(),
+            cache_read: non_neg_integer(),
+            cache_write: non_neg_integer(),
+            total_tokens: non_neg_integer(),
+            cost: Cost.t()
+          }
 
     defstruct [:input, :output, :cache_read, :cache_write, :total_tokens, :cost]
   end
@@ -52,10 +52,10 @@ defmodule Expi.Types do
     Text content in messages.
     """
     @type t :: %__MODULE__{
-      type: :text,
-      text: String.t(),
-      text_signature: String.t() | nil
-    }
+            type: :text,
+            text: String.t(),
+            text_signature: String.t() | nil
+          }
 
     defstruct type: :text, text: "", text_signature: nil
   end
@@ -65,11 +65,11 @@ defmodule Expi.Types do
     Thinking/reasoning content from AI models.
     """
     @type t :: %__MODULE__{
-      type: :thinking,
-      thinking: String.t(),
-      thinking_signature: String.t() | nil,
-      redacted: boolean()
-    }
+            type: :thinking,
+            thinking: String.t(),
+            thinking_signature: String.t() | nil,
+            redacted: boolean()
+          }
 
     defstruct type: :thinking, thinking: "", thinking_signature: nil, redacted: false
   end
@@ -79,10 +79,10 @@ defmodule Expi.Types do
     Image content in messages.
     """
     @type t :: %__MODULE__{
-      type: :image,
-      data: String.t(),
-      mime_type: String.t()
-    }
+            type: :image,
+            data: String.t(),
+            mime_type: String.t()
+          }
 
     defstruct type: :image, data: "", mime_type: ""
   end
@@ -92,15 +92,15 @@ defmodule Expi.Types do
     Tool definition for function calling.
     """
     @type function_spec :: %{
-      name: String.t(),
-      description: String.t(),
-      parameters: map()
-    }
+            name: String.t(),
+            description: String.t(),
+            parameters: map()
+          }
 
     @type t :: %__MODULE__{
-      type: :function,
-      function: function_spec()
-    }
+            type: :function,
+            function: function_spec()
+          }
 
     defstruct type: :function, function: %{}
   end
@@ -110,12 +110,12 @@ defmodule Expi.Types do
     Tool call content from AI models.
     """
     @type t :: %__MODULE__{
-      type: :tool_call,
-      id: String.t(),
-      name: String.t(),
-      arguments: map(),
-      thought_signature: String.t() | nil
-    }
+            type: :tool_call,
+            id: String.t(),
+            name: String.t(),
+            arguments: map(),
+            thought_signature: String.t() | nil
+          }
 
     defstruct type: :tool_call, id: "", name: "", arguments: %{}, thought_signature: nil
   end
@@ -126,23 +126,33 @@ defmodule Expi.Types do
     AI model configuration and metadata.
     """
     @type t :: %__MODULE__{
-      id: String.t(),
-      name: String.t(),
-      api: String.t(),
-      provider: String.t(),
-      base_url: String.t(),
-      reasoning: boolean(),
-      input: [String.t()],
-      cost: Cost.t(),
-      context_window: pos_integer(),
-      max_tokens: pos_integer(),
-      headers: map(),
-      compat: map()
-    }
+            id: String.t(),
+            name: String.t(),
+            api: String.t(),
+            provider: String.t(),
+            base_url: String.t(),
+            reasoning: boolean(),
+            input: [String.t()],
+            cost: Cost.t(),
+            context_window: pos_integer(),
+            max_tokens: pos_integer(),
+            headers: map(),
+            compat: map()
+          }
 
     defstruct [
-      :id, :name, :api, :provider, :base_url, :reasoning,
-      :input, :cost, :context_window, :max_tokens, :headers, :compat
+      :id,
+      :name,
+      :api,
+      :provider,
+      :base_url,
+      :reasoning,
+      :input,
+      :cost,
+      :context_window,
+      :max_tokens,
+      :headers,
+      :compat
     ]
 
     @doc """
@@ -159,6 +169,7 @@ defmodule Expi.Types do
     @spec valid_provider?(String.t() | nil) :: boolean()
     def valid_provider?(nil), do: false
     def valid_provider?(""), do: false
+
     def valid_provider?(provider) when is_binary(provider) do
       provider in ["anthropic", "openai", "google", "ollama"]
     end
@@ -172,10 +183,10 @@ defmodule Expi.Types do
     @type content :: String.t() | [TextContent.t() | ImageContent.t()]
 
     @type t :: %__MODULE__{
-      role: :user,
-      content: content(),
-      timestamp: pos_integer()
-    }
+            role: :user,
+            content: content(),
+            timestamp: pos_integer()
+          }
 
     defstruct role: :user, content: "", timestamp: 0
   end
@@ -188,21 +199,26 @@ defmodule Expi.Types do
     @type stop_reason :: :stop | :length | :tool_use | :error | :aborted | nil
 
     @type t :: %__MODULE__{
-      role: :assistant,
-      content: content(),
-      api: String.t(),
-      provider: String.t(),
-      model: String.t(),
-      usage: Usage.t() | nil,
-      stop_reason: stop_reason(),
-      error_message: String.t() | nil,
-      timestamp: pos_integer()
-    }
+            role: :assistant,
+            content: content(),
+            api: String.t(),
+            provider: String.t(),
+            model: String.t(),
+            usage: Usage.t() | nil,
+            stop_reason: stop_reason(),
+            error_message: String.t() | nil,
+            timestamp: pos_integer()
+          }
 
-    defstruct [
-      role: :assistant, content: [], api: "", provider: "", model: "",
-      usage: nil, stop_reason: nil, error_message: nil, timestamp: 0
-    ]
+    defstruct role: :assistant,
+              content: [],
+              api: "",
+              provider: "",
+              model: "",
+              usage: nil,
+              stop_reason: nil,
+              error_message: nil,
+              timestamp: 0
   end
 
   defmodule ToolResultMessage do
@@ -212,19 +228,22 @@ defmodule Expi.Types do
     @type content :: [TextContent.t() | ImageContent.t()]
 
     @type t :: %__MODULE__{
-      role: :tool_result,
-      tool_call_id: String.t(),
-      tool_name: String.t(),
-      content: content(),
-      details: any(),
-      is_error: boolean(),
-      timestamp: pos_integer()
-    }
+            role: :tool_result,
+            tool_call_id: String.t(),
+            tool_name: String.t(),
+            content: content(),
+            details: any(),
+            is_error: boolean(),
+            timestamp: pos_integer()
+          }
 
-    defstruct [
-      role: :tool_result, tool_call_id: "", tool_name: "",
-      content: [], details: nil, is_error: false, timestamp: 0
-    ]
+    defstruct role: :tool_result,
+              tool_call_id: "",
+              tool_name: "",
+              content: [],
+              details: nil,
+              is_error: false,
+              timestamp: 0
   end
 
   # Context for AI requests
@@ -235,10 +254,10 @@ defmodule Expi.Types do
     @type message :: UserMessage.t() | AssistantMessage.t() | ToolResultMessage.t()
 
     @type t :: %__MODULE__{
-      system_prompt: String.t() | nil,
-      messages: [message()],
-      tools: [Tool.t()] | nil
-    }
+            system_prompt: String.t() | nil,
+            messages: [message()],
+            tools: [Tool.t()] | nil
+          }
 
     defstruct system_prompt: nil, messages: [], tools: nil
 
@@ -254,42 +273,66 @@ defmodule Expi.Types do
   defmodule AssistantMessageEvent do
     @moduledoc """
     Events emitted during streaming AI responses.
-    
+
     Supports 12 different event types:
     - Lifecycle: start, done, error
     - Text: text_start, text_delta, text_end
     - Thinking: thinking_start, thinking_delta, thinking_end
     - Tool calls: toolcall_start, toolcall_delta, toolcall_end
     """
-    @type event_type :: :start | :text_start | :text_delta | :text_end |
-                        :thinking_start | :thinking_delta | :thinking_end |
-                        :toolcall_start | :toolcall_delta | :toolcall_end |
-                        :done | :error
+    @type event_type ::
+            :start
+            | :text_start
+            | :text_delta
+            | :text_end
+            | :thinking_start
+            | :thinking_delta
+            | :thinking_end
+            | :toolcall_start
+            | :toolcall_delta
+            | :toolcall_end
+            | :done
+            | :error
 
     @type stop_reason :: :stop | :length | :tool_use | :error | :aborted
 
     @type t :: %__MODULE__{
-      type: event_type(),
-      content_index: non_neg_integer() | nil,
-      delta: String.t() | nil,
-      content: String.t() | nil,
-      tool_call: ToolCall.t() | nil,
-      partial: AssistantMessage.t() | nil,
-      reason: stop_reason() | nil,
-      message: AssistantMessage.t() | nil,
-      error: AssistantMessage.t() | nil
-    }
+            type: event_type(),
+            content_index: non_neg_integer() | nil,
+            delta: String.t() | nil,
+            content: String.t() | nil,
+            tool_call: ToolCall.t() | nil,
+            partial: AssistantMessage.t() | nil,
+            reason: stop_reason() | nil,
+            message: AssistantMessage.t() | nil,
+            error: AssistantMessage.t() | nil
+          }
 
     defstruct [
-      :type, :content_index, :delta, :content, :tool_call,
-      :partial, :reason, :message, :error
+      :type,
+      :content_index,
+      :delta,
+      :content,
+      :tool_call,
+      :partial,
+      :reason,
+      :message,
+      :error
     ]
 
     @valid_types [
-      :start, :text_start, :text_delta, :text_end,
-      :thinking_start, :thinking_delta, :thinking_end,
-      :toolcall_start, :toolcall_delta, :toolcall_end,
-      :done, :error
+      :start,
+      :text_start,
+      :text_delta,
+      :text_end,
+      :thinking_start,
+      :thinking_delta,
+      :thinking_end,
+      :toolcall_start,
+      :toolcall_delta,
+      :toolcall_end,
+      :done,
+      :error
     ]
 
     @doc """

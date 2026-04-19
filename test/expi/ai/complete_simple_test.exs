@@ -2,6 +2,7 @@ defmodule Expi.CompleteSimpleTest do
   use ExUnit.Case, async: true
 
   alias Expi.AI
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -39,6 +40,7 @@ defmodule Expi.CompleteSimpleTest do
 
           # Should contain text content
           text_content = Enum.find(response.content, &(&1.type == :text))
+
           if text_content do
             assert %TextContent{} = text_content
             assert is_binary(text_content.text)
@@ -48,9 +50,13 @@ defmodule Expi.CompleteSimpleTest do
         {:error, reason} ->
           # Network/auth errors are acceptable in unit tests
           assert reason in [
-            :not_implemented, :unauthorized, :network_error, 
-            :connection_refused, :service_unavailable, :missing_api_key
-          ]
+                   :not_implemented,
+                   :unauthorized,
+                   :network_error,
+                   :connection_refused,
+                   :service_unavailable,
+                   :missing_api_key
+                 ]
       end
     end
 
@@ -82,9 +88,13 @@ defmodule Expi.CompleteSimpleTest do
         {:error, reason} ->
           # Network/auth errors are acceptable in unit tests
           assert reason in [
-            :not_implemented, :unauthorized, :quota_exceeded,
-            :network_error, :service_unavailable, :missing_api_key
-          ]
+                   :not_implemented,
+                   :unauthorized,
+                   :quota_exceeded,
+                   :network_error,
+                   :service_unavailable,
+                   :missing_api_key
+                 ]
       end
     end
 
@@ -116,9 +126,13 @@ defmodule Expi.CompleteSimpleTest do
         {:error, reason} ->
           # Connection errors are expected if Ollama isn't running
           assert reason in [
-            :not_implemented, :connection_refused, :service_unavailable,
-            :network_error, :model_not_found, :econnrefused
-          ]
+                   :not_implemented,
+                   :connection_refused,
+                   :service_unavailable,
+                   :network_error,
+                   :model_not_found,
+                   :econnrefused
+                 ]
       end
     end
 
@@ -144,7 +158,12 @@ defmodule Expi.CompleteSimpleTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 18,
-              cost: %Expi.Types.Cost{input: 0.024, output: 0.15, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{
+                input: 0.024,
+                output: 0.15,
+                cache_read: 0.0,
+                cache_write: 0.0
+              }
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
@@ -160,9 +179,10 @@ defmodule Expi.CompleteSimpleTest do
       case AI.complete_simple(model, context) do
         {:ok, response} ->
           assert %AssistantMessage{} = response
-          
+
           # Should reference the name from conversation history
           text_content = Enum.find(response.content, &(&1.type == :text))
+
           if text_content do
             assert String.contains?(String.downcase(text_content.text), "alice")
           end
@@ -184,7 +204,8 @@ defmodule Expi.CompleteSimpleTest do
               %Expi.Types.TextContent{type: :text, text: "What's in this image?"},
               %Expi.Types.ImageContent{
                 type: :image,
-                data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                data:
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
               }
             ],
@@ -236,6 +257,7 @@ defmodule Expi.CompleteSimpleTest do
 
           # Check if tool calls were made
           tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
+
           if length(tool_calls) > 0 do
             tool_call = List.first(tool_calls)
             assert tool_call.name == "get_weather"
@@ -329,15 +351,19 @@ defmodule Expi.CompleteSimpleTest do
       models_and_expected_errors = [
         {anthropic_model, [:not_implemented, :unauthorized, :rate_limited, :missing_api_key]},
         {google_model, [:not_implemented, :quota_exceeded, :unauthorized, :missing_api_key]},
-        {ollama_model, [:not_implemented, :connection_refused, :service_unavailable, :network_error]}
+        {ollama_model,
+         [:not_implemented, :connection_refused, :service_unavailable, :network_error]}
       ]
 
       for {model, expected_errors} <- models_and_expected_errors do
         case AI.complete_simple(model, context) do
-          {:ok, _} -> :ok  # Success is also acceptable
+          # Success is also acceptable
+          {:ok, _} ->
+            :ok
+
           {:error, reason} ->
             assert reason in expected_errors,
-              "Unexpected error #{reason} for provider #{model.provider}"
+                   "Unexpected error #{reason} for provider #{model.provider}"
         end
       end
     end
@@ -359,7 +385,7 @@ defmodule Expi.CompleteSimpleTest do
         {:ok, response} ->
           # Response should preserve model information
           assert response.api == model.api
-          assert response.provider == model.provider  
+          assert response.provider == model.provider
           assert response.model == model.id
           assert response.timestamp > 0
 
@@ -419,7 +445,8 @@ defmodule Expi.CompleteSimpleTest do
       case AI.complete_simple(model, context, options) do
         {:ok, response} ->
           assert %AssistantMessage{} = response
-          # Options should be passed through to provider
+
+        # Options should be passed through to provider
 
         {:error, _} ->
           :ok
@@ -442,15 +469,24 @@ defmodule Expi.CompleteSimpleTest do
       }
 
       case AI.complete_simple(model, context) do
-        {:ok, _} -> :ok
+        {:ok, _} ->
+          :ok
+
         {:error, reason} ->
           # Error should be properly categorized
           assert is_atom(reason)
+
           assert reason in [
-            :not_implemented, :unauthorized, :rate_limited, :service_unavailable,
-            :network_error, :invalid_api_key, :quota_exceeded, :connection_refused,
-            :missing_api_key
-          ]
+                   :not_implemented,
+                   :unauthorized,
+                   :rate_limited,
+                   :service_unavailable,
+                   :network_error,
+                   :invalid_api_key,
+                   :quota_exceeded,
+                   :connection_refused,
+                   :missing_api_key
+                 ]
       end
     end
 

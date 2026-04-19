@@ -45,11 +45,12 @@ defmodule Expi.AI.Streaming do
   @doc """
   Creates a production streaming enumerable from HTTP SSE stream.
   """
-  @spec create_production_stream(String.t(), String.t(), list(), String.t(), String.t()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  @spec create_production_stream(String.t(), String.t(), list(), String.t(), String.t()) ::
+          {:ok, Enumerable.t()} | {:error, atom()}
   def create_production_stream(url, body, headers, provider, model_id) do
     case Expi.AI.HttpClient.stream_post(url, body, headers) do
       {:ok, http_stream} ->
-        event_stream = 
+        event_stream =
           http_stream
           |> accumulate_sse_chunks()
           |> Stream.flat_map(&parse_sse_chunk/1)
@@ -57,9 +58,9 @@ defmodule Expi.AI.Streaming do
           |> Stream.map(fn sse_event -> standardize_event(sse_event, provider) end)
           |> Stream.filter(fn event -> not is_nil(event) end)
           |> add_telemetry_tracking(provider, model_id)
-        
+
         {:ok, event_stream}
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -67,7 +68,7 @@ defmodule Expi.AI.Streaming do
 
   @doc """
   Accumulates HTTP chunks into complete SSE events.
-  
+
   HTTP streaming can send partial chunks, but SSE events need complete
   data blocks ending with double newlines.
   """
@@ -77,25 +78,25 @@ defmodule Expi.AI.Streaming do
     |> Stream.transform("", fn chunk, buffer ->
       # Accumulate chunks in buffer
       new_buffer = buffer <> chunk
-      
+
       # Split on double newlines to find complete events
       parts = String.split(new_buffer, "\n\n")
-      
+
       case parts do
         [incomplete] ->
           # No complete events yet, keep accumulating
           {[], incomplete}
-        
+
         parts_list when length(parts_list) > 1 ->
           # Last part might be incomplete, others are complete events
           {remaining_buffer, complete_parts} = List.pop_at(parts_list, -1)
-          
+
           # Add back double newlines to complete events (except empty ones)
-          complete_events = 
+          complete_events =
             complete_parts
             |> Enum.reject(&(String.trim(&1) == ""))
             |> Enum.map(&(&1 <> "\n\n"))
-          
+
           {complete_events, remaining_buffer || ""}
       end
     end)
@@ -118,7 +119,14 @@ defmodule Expi.AI.Streaming do
           api: "streaming",
           provider: provider,
           model: model_id,
-          usage: %Expi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Expi.Types.Usage{
+            input: 0,
+            output: 0,
+            cache_read: 0,
+            cache_write: 0,
+            total_tokens: 0,
+            cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}
+          },
           stop_reason: nil,
           error_message: nil,
           timestamp: System.system_time(:millisecond)
@@ -149,11 +157,23 @@ defmodule Expi.AI.Streaming do
         reason: :stop,
         message: %AssistantMessage{
           role: :assistant,
-          content: [%TextContent{type: :text, text: "Hello! I'm an AI assistant. How can I help you today?"}],
+          content: [
+            %TextContent{
+              type: :text,
+              text: "Hello! I'm an AI assistant. How can I help you today?"
+            }
+          ],
           api: "streaming",
           provider: provider,
           model: model_id,
-          usage: %Expi.Types.Usage{input: 20, output: 15, cache_read: 0, cache_write: 0, total_tokens: 35, cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Expi.Types.Usage{
+            input: 20,
+            output: 15,
+            cache_read: 0,
+            cache_write: 0,
+            total_tokens: 35,
+            cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}
+          },
           stop_reason: :stop,
           error_message: nil,
           timestamp: System.system_time(:millisecond)
@@ -178,21 +198,25 @@ defmodule Expi.AI.Streaming do
 
   defp parse_single_sse_event(event_string) do
     lines = String.split(event_string, "\n")
-    
-    event_data = %{}
-    |> parse_sse_lines(lines)
-    
+
+    event_data =
+      %{}
+      |> parse_sse_lines(lines)
+
     case event_data do
       %{"data" => data} when data != "[DONE]" ->
         case Jason.decode(data) do
           {:ok, parsed} -> parsed
           {:error, _} -> nil
         end
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 
   defp parse_sse_lines(acc, []), do: acc
+
   defp parse_sse_lines(acc, [line | rest]) do
     case String.split(line, ": ", parts: 2) do
       ["data", value] -> parse_sse_lines(Map.put(acc, "data", value), rest)
@@ -213,9 +237,14 @@ defmodule Expi.AI.Streaming do
 
       %{"type" => "content_block_start", "content_block" => block} ->
         case block["type"] do
-          "text" -> %AssistantMessageEvent{type: :text_start, content_index: block["index"]}
-          "thinking" -> %AssistantMessageEvent{type: :thinking_start, content_index: block["index"]}
-          "tool_use" -> %AssistantMessageEvent{type: :toolcall_start, content_index: block["index"]}
+          "text" ->
+            %AssistantMessageEvent{type: :text_start, content_index: block["index"]}
+
+          "thinking" ->
+            %AssistantMessageEvent{type: :thinking_start, content_index: block["index"]}
+
+          "tool_use" ->
+            %AssistantMessageEvent{type: :toolcall_start, content_index: block["index"]}
         end
 
       %{"type" => "content_block_delta", "delta" => delta, "index" => index} ->
@@ -226,6 +255,7 @@ defmodule Expi.AI.Streaming do
               content_index: index,
               delta: delta["text"]
             }
+
           "thinking_delta" ->
             %AssistantMessageEvent{
               type: :thinking_delta,
@@ -244,7 +274,9 @@ defmodule Expi.AI.Streaming do
               type: :done,
               reason: parse_anthropic_stop_reason(stop_reason)
             }
-          _ -> nil
+
+          _ ->
+            nil
         end
 
       %{"type" => "message_stop"} ->
@@ -256,7 +288,8 @@ defmodule Expi.AI.Streaming do
           error: %{message: error["message"], type: error["type"]}
         }
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
@@ -271,19 +304,25 @@ defmodule Expi.AI.Streaming do
               content_index: 0,
               delta: text
             }
+
           %{"finishReason" => reason} ->
             %AssistantMessageEvent{
               type: :done,
               reason: parse_gemini_stop_reason(reason)
             }
-          _ -> nil
+
+          _ ->
+            nil
         end
+
       %{"error" => error} ->
         %AssistantMessageEvent{
           type: :error,
           error: %{message: error["message"], code: error["code"]}
         }
-      _ -> nil
+
+      _ ->
+        nil
     end
   end
 
@@ -298,6 +337,7 @@ defmodule Expi.AI.Streaming do
               type: :done,
               reason: parse_ollama_stop_reason(reason)
             }
+
           %{"delta" => delta} ->
             case delta do
               %{"content" => content} when is_binary(content) ->
@@ -306,15 +346,20 @@ defmodule Expi.AI.Streaming do
                   content_index: 0,
                   delta: content
                 }
+
               %{"tool_calls" => tool_calls} ->
                 %AssistantMessageEvent{
                   type: :toolcall_delta,
                   content_index: 0,
                   tool_call: parse_tool_call_delta(tool_calls)
                 }
-              _ -> nil
+
+              _ ->
+                nil
             end
-          _ -> nil
+
+          _ ->
+            nil
         end
 
       %{"error" => error} ->
@@ -323,7 +368,8 @@ defmodule Expi.AI.Streaming do
           error: %{message: error["message"], type: error["type"]}
         }
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
@@ -351,12 +397,14 @@ defmodule Expi.AI.Streaming do
       arguments: tool_call["function"]["arguments"]
     }
   end
+
   defp parse_tool_call_delta(_), do: nil
 
   @doc """
   Accumulates streaming events into a complete AssistantMessage.
   """
-  @spec accumulate_message(AssistantMessage.t(), AssistantMessageEvent.t()) :: AssistantMessage.t()
+  @spec accumulate_message(AssistantMessage.t(), AssistantMessageEvent.t()) ::
+          AssistantMessage.t()
   def accumulate_message(message, %AssistantMessageEvent{type: :start}) do
     message
   end
@@ -369,13 +417,19 @@ defmodule Expi.AI.Streaming do
     %{message | content: new_content}
   end
 
-  def accumulate_message(message, %AssistantMessageEvent{type: :text_delta, content_index: index, delta: delta}) do
+  def accumulate_message(message, %AssistantMessageEvent{
+        type: :text_delta,
+        content_index: index,
+        delta: delta
+      }) do
     content = message.content
+
     case Enum.at(content, index) do
       %TextContent{text: existing_text} = text_content ->
         updated_content = %{text_content | text: existing_text <> delta}
         new_content = List.replace_at(content, index, updated_content)
         %{message | content: new_content}
+
       _ ->
         # Create new text content if it doesn't exist
         text_content = %TextContent{type: :text, text: delta}
@@ -385,20 +439,29 @@ defmodule Expi.AI.Streaming do
     end
   end
 
-  def accumulate_message(message, %AssistantMessageEvent{type: :thinking_start, content_index: index}) do
+  def accumulate_message(message, %AssistantMessageEvent{
+        type: :thinking_start,
+        content_index: index
+      }) do
     content = ensure_content_slots(message.content, index)
     thinking_content = %ThinkingContent{type: :thinking, thinking: ""}
     new_content = List.replace_at(content, index, thinking_content)
     %{message | content: new_content}
   end
 
-  def accumulate_message(message, %AssistantMessageEvent{type: :thinking_delta, content_index: index, delta: delta}) do
+  def accumulate_message(message, %AssistantMessageEvent{
+        type: :thinking_delta,
+        content_index: index,
+        delta: delta
+      }) do
     content = message.content
+
     case Enum.at(content, index) do
       %ThinkingContent{thinking: existing_thinking} = thinking_content ->
         updated_content = %{thinking_content | thinking: existing_thinking <> delta}
         new_content = List.replace_at(content, index, updated_content)
         %{message | content: new_content}
+
       _ ->
         # Create new thinking content if it doesn't exist
         thinking_content = %ThinkingContent{type: :thinking, thinking: delta}
@@ -424,6 +487,7 @@ defmodule Expi.AI.Streaming do
   # Helper to ensure content list has enough slots
   defp ensure_content_slots(content, target_index) do
     current_length = length(content)
+
     if target_index >= current_length do
       content ++ List.duplicate(nil, target_index - current_length + 1)
     else
@@ -434,10 +498,11 @@ defmodule Expi.AI.Streaming do
   # Production streaming helper functions
 
   # Converts SSE event data to AssistantMessageEvent format.
-  @spec convert_sse_to_assistant_event(map(), String.t(), String.t()) :: AssistantMessageEvent.t() | nil
+  @spec convert_sse_to_assistant_event(map(), String.t(), String.t()) ::
+          AssistantMessageEvent.t() | nil
   defp convert_sse_to_assistant_event(sse_event, provider, model_id) do
     timestamp = System.system_time(:millisecond)
-    
+
     case sse_event do
       %{"event" => "start"} ->
         %AssistantMessageEvent{
@@ -456,7 +521,7 @@ defmodule Expi.AI.Streaming do
               delta: nil,
               message: nil
             }
-          
+
           "tool_use" ->
             %AssistantMessageEvent{
               type: :toolcall_start,
@@ -464,8 +529,9 @@ defmodule Expi.AI.Streaming do
               delta: nil,
               message: nil
             }
-          
-          _ -> nil
+
+          _ ->
+            nil
         end
 
       %{"event" => "content_block_delta", "data" => data} ->
@@ -475,20 +541,19 @@ defmodule Expi.AI.Streaming do
               type: :text_delta,
               content_index: data["index"] || 0,
               delta: data["delta"]["text"],
-              message: nil,
-              
+              message: nil
             }
-          
+
           "input_json_delta" ->
             %AssistantMessageEvent{
               type: :toolcall_delta,
               content_index: data["index"] || 0,
               delta: data["delta"]["partial_json"],
-              message: nil,
-              
+              message: nil
             }
-          
-          _ -> nil
+
+          _ ->
+            nil
         end
 
       %{"event" => "message_delta", "data" => data} ->
@@ -498,8 +563,7 @@ defmodule Expi.AI.Streaming do
             content_index: 0,
             delta: nil,
             reason: parse_stop_reason(data["delta"]["stop_reason"], provider),
-            message: nil,
-            
+            message: nil
           }
         else
           nil
@@ -511,8 +575,7 @@ defmodule Expi.AI.Streaming do
           content_index: 0,
           delta: nil,
           reason: :stop,
-          message: nil,
-          
+          message: nil
         }
 
       %{"event" => "error", "data" => error_data} ->
@@ -521,11 +584,11 @@ defmodule Expi.AI.Streaming do
           content_index: 0,
           delta: nil,
           error: %{message: error_data["message"], type: error_data["type"]},
-          message: nil,
-          
+          message: nil
         }
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
@@ -536,10 +599,16 @@ defmodule Expi.AI.Streaming do
       api: "streaming",
       provider: provider,
       model: model_id,
-      usage: %Expi.Types.Usage{input: 0, output: 0, cache_read: 0, cache_write: 0, total_tokens: 0, cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+      usage: %Expi.Types.Usage{
+        input: 0,
+        output: 0,
+        cache_read: 0,
+        cache_write: 0,
+        total_tokens: 0,
+        cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}
+      },
       stop_reason: nil,
-      error_message: nil,
-      
+      error_message: nil
     }
   end
 
@@ -556,7 +625,7 @@ defmodule Expi.AI.Streaming do
   @spec add_telemetry_tracking(Enumerable.t(), String.t(), String.t()) :: Enumerable.t()
   defp add_telemetry_tracking(stream, provider, model_id) do
     start_time = System.monotonic_time(:millisecond)
-    
+
     stream
     |> Stream.map(fn event ->
       # Emit telemetry for each event
@@ -570,6 +639,7 @@ defmodule Expi.AI.Streaming do
         duration = System.monotonic_time(:millisecond) - start_time
         Expi.AI.Telemetry.emit_stream_session(provider, model_id, duration, index + 1)
       end
+
       event
     end)
   end

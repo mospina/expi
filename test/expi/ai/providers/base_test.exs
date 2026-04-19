@@ -2,6 +2,7 @@ defmodule Expi.Providers.BaseTest do
   use ExUnit.Case, async: true
 
   alias Expi.Providers.Base
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -217,8 +218,10 @@ defmodule Expi.Providers.BaseTest do
       cost = Base.calculate_cost(model, usage)
 
       assert is_map(cost)
-      assert cost.input == 0.001  # 1000 * 1.0 / 1_000_000
-      assert cost.output == 0.001  # 500 * 2.0 / 1_000_000
+      # 1000 * 1.0 / 1_000_000
+      assert cost.input == 0.001
+      # 500 * 2.0 / 1_000_000
+      assert cost.output == 0.001
       assert cost.cache_read == 0.0
       assert cost.cache_write == 0.0
       assert cost.total == 0.002
@@ -227,9 +230,13 @@ defmodule Expi.Providers.BaseTest do
     test "handles zero usage" do
       usage = %{input: 0, output: 0, cache_read: 0, cache_write: 0}
 
-      cost = Base.calculate_cost(%Model{
-        cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.5, cache_write: 1.5}
-      }, usage)
+      cost =
+        Base.calculate_cost(
+          %Model{
+            cost: %Expi.Types.Cost{input: 1.0, output: 2.0, cache_read: 0.5, cache_write: 1.5}
+          },
+          usage
+        )
 
       assert cost.input == 0.0
       assert cost.output == 0.0
@@ -243,7 +250,8 @@ defmodule Expi.Providers.BaseTest do
 
       cost = Base.calculate_cost(model, partial_usage)
 
-      assert cost.input == 0.0001  # 100 * 1.0 / 1_000_000
+      # 100 * 1.0 / 1_000_000
+      assert cost.input == 0.0001
       assert cost.output == 0.0
       assert cost.cache_read == 0.0
       assert cost.cache_write == 0.0
@@ -279,8 +287,14 @@ defmodule Expi.Providers.BaseTest do
           api: "test-api",
           provider: "test",
           model: "test-model",
-          usage: %Usage{input: 1, output: 2, cache_read: 0, cache_write: 0, total_tokens: 3,
-            cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Usage{
+            input: 1,
+            output: 2,
+            cache_read: 0,
+            cache_write: 0,
+            total_tokens: 3,
+            cost: %Expi.Types.Cost{input: 0.001, output: 0.002, cache_read: 0.0, cache_write: 0.0}
+          },
           stop_reason: :stop,
           timestamp: System.system_time(:millisecond)
         }
@@ -307,8 +321,14 @@ defmodule Expi.Providers.BaseTest do
           api: "test-api",
           provider: "test",
           model: "test-model",
-          usage: %Usage{input: 5, output: 6, cache_read: 0, cache_write: 0, total_tokens: 11,
-            cost: %Expi.Types.Cost{input: 0.005, output: 0.012, cache_read: 0.0, cache_write: 0.0}},
+          usage: %Usage{
+            input: 5,
+            output: 6,
+            cache_read: 0,
+            cache_write: 0,
+            total_tokens: 11,
+            cost: %Expi.Types.Cost{input: 0.005, output: 0.012, cache_read: 0.0, cache_write: 0.0}
+          },
           stop_reason: :stop,
           timestamp: System.system_time(:millisecond) - 500
         },
@@ -403,10 +423,14 @@ defmodule Expi.Providers.BaseTest do
 
       merged = Base.merge_default_options(defaults, custom)
 
-      assert merged.temperature == 0.5  # Custom overrides default
-      assert merged.max_tokens == 100  # Default preserved
-      assert merged.top_p == 0.9  # Default preserved
-      assert merged.custom_param == "value"  # Custom added
+      # Custom overrides default
+      assert merged.temperature == 0.5
+      # Default preserved
+      assert merged.max_tokens == 100
+      # Default preserved
+      assert merged.top_p == 0.9
+      # Custom added
+      assert merged.custom_param == "value"
     end
 
     test "handles nil custom options" do
@@ -468,8 +492,10 @@ defmodule Expi.Providers.BaseTest do
       assert usage.cache_write == 0
 
       # Cost should be calculated based on model pricing
-      assert usage.cost.input == 0.0001  # 100 * 1.0 / 1_000_000
-      assert usage.cost.output == 0.0001  # 50 * 2.0 / 1_000_000
+      # 100 * 1.0 / 1_000_000
+      assert usage.cost.input == 0.0001
+      # 50 * 2.0 / 1_000_000
+      assert usage.cost.output == 0.0001
       assert Expi.Types.Cost.total(usage.cost) == 0.0002
     end
 
@@ -500,6 +526,7 @@ defmodule Expi.Providers.BaseTest do
 
       retry_fn = fn ->
         attempt = Agent.get_and_update(agent, fn count -> {count, count + 1} end)
+
         if attempt < 2 do
           {:error, :temporary_failure}
         else

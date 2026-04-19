@@ -78,7 +78,7 @@ defmodule Expi.AuthTest do
       assert is_list(headers)
       # Google uses the API key in the URL or as a header depending on the API
       assert List.keyfind(headers, "Authorization", 0) != nil or
-             List.keyfind(headers, "x-goog-api-key", 0) != nil
+               List.keyfind(headers, "x-goog-api-key", 0) != nil
     end
 
     test "builds empty headers for Ollama" do
@@ -233,7 +233,8 @@ defmodule Expi.AuthTest do
   describe "error handling" do
     test "handles authentication failures gracefully" do
       # Test various authentication failure scenarios
-      assert {:error, :authentication_failed} = Auth.authenticate_request("anthropic", "invalid-key")
+      assert {:error, :authentication_failed} =
+               Auth.authenticate_request("anthropic", "invalid-key")
     end
 
     test "provides helpful error messages" do

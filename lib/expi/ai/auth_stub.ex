@@ -50,7 +50,7 @@ defmodule Expi.AI.Auth do
       {:ok, api_key} ->
         headers = build_auth_headers(provider, api_key)
         {:ok, headers}
-      
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -74,7 +74,7 @@ defmodule Expi.AI.Auth do
   """
   @spec get_ollama_endpoint() :: String.t()
   def get_ollama_endpoint do
-    System.get_env("OLLAMA_ENDPOINT") || 
+    System.get_env("OLLAMA_ENDPOINT") ||
       Application.get_env(:expi, :ollama_endpoint, "http://localhost:11434")
   end
 
@@ -119,7 +119,7 @@ defmodule Expi.AI.Auth do
 
   defp validate_ollama_connection do
     ollama_url = get_ollama_endpoint()
-    
+
     case Expi.AI.HttpClient.get("#{ollama_url}/api/tags", []) do
       {:ok, %{status: 200}} -> {:ok, :valid}
       {:ok, %{status: _}} -> {:error, :connection_failed}

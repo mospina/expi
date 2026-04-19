@@ -6,6 +6,7 @@ defmodule Expi.Providers.Ollama do
 
   alias Expi.AI.HttpClient
   alias Expi.Providers.Base
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -46,7 +47,7 @@ defmodule Expi.Providers.Ollama do
   @spec build_request_payload(Model.t(), Context.t(), map()) :: {:ok, map()} | {:error, atom()}
   def build_request_payload(model, context, options) do
     merged_options = Base.merge_default_options(@default_options, options)
-    
+
     messages = format_ollama_messages(context.messages, context.system_prompt)
 
     payload = %{
@@ -76,13 +77,13 @@ defmodule Expi.Providers.Ollama do
   end
 
   def parse_response(%{
-    "choices" => [choice | _],
-    "usage" => usage,
-    "model" => model_id
-  }) do
+        "choices" => [choice | _],
+        "usage" => usage,
+        "model" => model_id
+      }) do
     message = choice["message"]
     finish_reason = Map.get(choice, "finish_reason")
-    
+
     parsed_content = parse_ollama_message(message)
     usage_struct = parse_ollama_usage(usage)
     stop_reason = parse_ollama_finish_reason(finish_reason)
@@ -118,8 +119,10 @@ defmodule Expi.Providers.Ollama do
           {:ok, response} -> {:ok, response}
           {:error, reason} -> {:error, reason}
         end
+
       {:ok, %{status: status}} ->
         {:error, map_http_error(status)}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -132,10 +135,13 @@ defmodule Expi.Providers.Ollama do
   def model_available?(base_url, model_name) do
     case health_check(base_url) do
       {:ok, %{"models" => models}} ->
-        available = Enum.any?(models, fn model ->
-          Map.get(model, "name") == model_name
-        end)
+        available =
+          Enum.any?(models, fn model ->
+            Map.get(model, "name") == model_name
+          end)
+
         {:ok, available}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -166,7 +172,8 @@ defmodule Expi.Providers.Ollama do
   # Private helper functions
 
   defp prepare_request_headers(model) do
-    headers = []  # Ollama typically doesn't require authentication for local usage
+    # Ollama typically doesn't require authentication for local usage
+    headers = []
     {:ok, Base.prepare_headers(model, headers)}
   end
 
@@ -177,13 +184,16 @@ defmodule Expi.Providers.Ollama do
     case HttpClient.post(url, body, headers) do
       {:ok, %{status: 200, body: response_body}} ->
         Base.parse_json_safely(response_body)
+
       {:ok, %{status: status, body: body}} ->
         case Base.parse_json_safely(body) do
           {:ok, error_response} -> {:error, {status, error_response}}
           {:error, _} -> Base.handle_http_error(status, body)
         end
+
       {:error, :econnrefused} ->
         {:error, :connection_refused}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -191,26 +201,29 @@ defmodule Expi.Providers.Ollama do
 
   defp format_ollama_messages(messages, system_prompt) do
     # Add system message if present
-    system_messages = if system_prompt do
-      [%{"role" => "system", "content" => system_prompt}]
-    else
-      []
-    end
+    system_messages =
+      if system_prompt do
+        [%{"role" => "system", "content" => system_prompt}]
+      else
+        []
+      end
 
     formatted_messages = Enum.map(messages, &format_ollama_message/1)
     system_messages ++ formatted_messages
   end
 
-  defp format_ollama_message(%UserMessage{role: :user, content: content}) when is_binary(content) do
+  defp format_ollama_message(%UserMessage{role: :user, content: content})
+       when is_binary(content) do
     %{"role" => "user", "content" => content}
   end
 
   defp format_ollama_message(%UserMessage{role: :user, content: content}) when is_list(content) do
     # For multi-modal content, extract text parts
-    text_content = content
-    |> Enum.filter(&is_text_content?/1)
-    |> Enum.map(& &1.text)
-    |> Enum.join(" ")
+    text_content =
+      content
+      |> Enum.filter(&is_text_content?/1)
+      |> Enum.map(& &1.text)
+      |> Enum.join(" ")
 
     %{"role" => "user", "content" => text_content}
   end
@@ -225,6 +238,7 @@ defmodule Expi.Providers.Ollama do
 
   defp maybe_add_tools(payload, nil), do: payload
   defp maybe_add_tools(payload, []), do: payload
+
   defp maybe_add_tools(payload, tools) do
     # Ollama/OpenAI format for tools
     formatted_tools = Enum.map(tools, &format_ollama_tool/1)
@@ -250,7 +264,8 @@ defmodule Expi.Providers.Ollama do
     }
   end
 
-  defp parse_ollama_message(%{"content" => content, "tool_calls" => tool_calls}) when is_nil(content) or content == "" do
+  defp parse_ollama_message(%{"content" => content, "tool_calls" => tool_calls})
+       when is_nil(content) or content == "" do
     # If no text content, just return tool calls
     Enum.map(tool_calls, &parse_tool_call/1)
   end
@@ -267,19 +282,20 @@ defmodule Expi.Providers.Ollama do
   end
 
   defp parse_tool_call(%{"id" => id, "function" => %{"name" => name, "arguments" => args}}) do
-    parsed_args = case Jason.decode(args) do
-      {:ok, decoded} -> decoded
-      {:error, _} -> %{}
-    end
+    parsed_args =
+      case Jason.decode(args) do
+        {:ok, decoded} -> decoded
+        {:error, _} -> %{}
+      end
 
     %ToolCall{type: :tool_call, id: id, name: name, arguments: parsed_args}
   end
 
   defp parse_ollama_usage(%{
-    "prompt_tokens" => input,
-    "completion_tokens" => output,
-    "total_tokens" => total
-  }) do
+         "prompt_tokens" => input,
+         "completion_tokens" => output,
+         "total_tokens" => total
+       }) do
     %Usage{
       input: input,
       output: output,
@@ -311,19 +327,19 @@ defmodule Expi.Providers.Ollama do
          {:ok, payload} <- build_streaming_payload(model, context, options),
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
-      
       # Attempt production streaming - if it fails, return the error
       body = Jason.encode!(payload)
+
       case Expi.AI.Streaming.create_production_stream(url, body, headers, "ollama", model.id) do
         {:ok, raw_stream} ->
           # Transform Ollama SSE events to standardized events
-          transformed_stream = 
+          transformed_stream =
             raw_stream
             |> Stream.map(fn event -> transform_ollama_event(event, payload) end)
             |> Stream.filter(fn event -> not is_nil(event) end)
-          
+
           {:ok, transformed_stream}
-        
+
         {:error, reason} ->
           # Return the actual error (connection refused, missing API key, network issues, etc.)
           {:error, reason}
@@ -348,6 +364,7 @@ defmodule Expi.Providers.Ollama do
         {"Accept", "text/event-stream"},
         {"Cache-Control", "no-cache"} | headers
       ]
+
       {:ok, streaming_headers}
     end
   end
@@ -367,6 +384,7 @@ defmodule Expi.Providers.Ollama do
   defp parse_ollama_finish_reason("length"), do: :length
   defp parse_ollama_finish_reason("tool_calls"), do: :tool_use
   defp parse_ollama_finish_reason("content_filter"), do: :content_filter
-  defp parse_ollama_finish_reason(nil), do: :stop  # Default when no finish_reason provided
+  # Default when no finish_reason provided
+  defp parse_ollama_finish_reason(nil), do: :stop
   defp parse_ollama_finish_reason(_), do: :unknown
 end

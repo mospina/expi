@@ -180,10 +180,12 @@ defmodule Expi.AITest do
 
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
-          assert Enumerable.impl_for(stream) != nil  # Stream should be enumerable
+          # Stream should be enumerable
+          assert Enumerable.impl_for(stream) != nil
           # Test that we can actually enumerate events
           events = stream |> Enum.take(3)
           assert length(events) == 3
+
         {:error, reason} ->
           # Network/connection errors acceptable for Ollama in test environment
           assert reason in [:connection_refused, :network_error]
@@ -210,6 +212,7 @@ defmodule Expi.AITest do
           # Verify we can get events from the stream
           events = stream |> Enum.take(2)
           assert length(events) >= 1
+
         {:error, reason} ->
           assert reason in [:missing_api_key, :network_error]
       end
@@ -234,10 +237,10 @@ defmodule Expi.AITest do
     test "error responses match between AI and ModelRegistry" do
       # Test that errors are properly propagated
       assert AI.get_model("unknown", "model") ==
-             Expi.ModelRegistry.get_model("unknown", "model")
+               Expi.ModelRegistry.get_model("unknown", "model")
 
       assert AI.get_model("anthropic", "unknown") ==
-             Expi.ModelRegistry.get_model("anthropic", "unknown")
+               Expi.ModelRegistry.get_model("anthropic", "unknown")
     end
   end
 
@@ -287,16 +290,18 @@ defmodule Expi.AITest do
 
       # Should be very fast since it's hardcoded lookup
       elapsed_microseconds = end_time - start_time
-      assert elapsed_microseconds < 1000  # Less than 1ms
+      # Less than 1ms
+      assert elapsed_microseconds < 1000
     end
 
     test "handles concurrent model lookups" do
       # Test concurrent access to model registry
-      tasks = for _ <- 1..10 do
-        Task.async(fn ->
-          AI.get_model("anthropic", "claude-opus-4-5")
-        end)
-      end
+      tasks =
+        for _ <- 1..10 do
+          Task.async(fn ->
+            AI.get_model("anthropic", "claude-opus-4-5")
+          end)
+        end
 
       results = Task.await_many(tasks, 1000)
 

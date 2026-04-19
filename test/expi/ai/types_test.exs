@@ -1,5 +1,6 @@
 defmodule Expi.TypesTest do
   use ExUnit.Case, async: true
+
   alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
@@ -92,7 +93,8 @@ defmodule Expi.TypesTest do
 
       invalid_context = %Context{
         system_prompt: nil,
-        messages: nil,  # Invalid: should be a list
+        # Invalid: should be a list
+        messages: nil,
         tools: nil
       }
 
@@ -304,10 +306,17 @@ defmodule Expi.TypesTest do
     test "validates all 12 event types exist" do
       event_types = [
         :start,
-        :text_start, :text_delta, :text_end,
-        :thinking_start, :thinking_delta, :thinking_end,
-        :toolcall_start, :toolcall_delta, :toolcall_end,
-        :done, :error
+        :text_start,
+        :text_delta,
+        :text_end,
+        :thinking_start,
+        :thinking_delta,
+        :thinking_end,
+        :toolcall_start,
+        :toolcall_delta,
+        :toolcall_end,
+        :done,
+        :error
       ]
 
       # This test will ensure we implement all 12 event types

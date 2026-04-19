@@ -19,7 +19,7 @@ defmodule Expi.AI.HttpClient do
     case HTTPoison.post(url, body, headers, options) do
       {:ok, %HTTPoison.Response{status_code: status, body: response_body}} ->
         {:ok, %{status: status, body: response_body}}
-      
+
       {:error, %HTTPoison.Error{reason: reason}} ->
         map_httpoison_error(reason)
     end
@@ -40,7 +40,7 @@ defmodule Expi.AI.HttpClient do
     case HTTPoison.get(url, headers, options) do
       {:ok, %HTTPoison.Response{status_code: status, body: response_body}} ->
         {:ok, %{status: status, body: response_body}}
-      
+
       {:error, %HTTPoison.Error{reason: reason}} ->
         map_httpoison_error(reason)
     end
@@ -53,8 +53,10 @@ defmodule Expi.AI.HttpClient do
   def stream_post(url, body, headers) do
     # Start the async request immediately and collect all chunks
     options = [
-      timeout: 300_000,        # 5 minutes in milliseconds
-      recv_timeout: 300_000,   # 5 minutes in milliseconds
+      # 5 minutes in milliseconds
+      timeout: 300_000,
+      # 5 minutes in milliseconds
+      recv_timeout: 300_000,
       ssl: [verify: :verify_peer],
       hackney: [pool: :ai_stream_pool],
       stream_to: self(),
@@ -67,7 +69,7 @@ defmodule Expi.AI.HttpClient do
         chunks = collect_all_chunks(id)
         # Convert list to stream - just return the list, it's enumerable
         {:ok, chunks}
-        
+
       {:error, %HTTPoison.Error{reason: reason}} ->
         map_httpoison_error(reason)
     end
@@ -82,48 +84,47 @@ defmodule Expi.AI.HttpClient do
     receive do
       %HTTPoison.AsyncStatus{id: ^id, code: status} when status >= 400 ->
         # Return error chunk and stop
-        reason = case status do
-          401 -> "authentication_error"
-          403 -> "permission_error" 
-          429 -> "rate_limit_error"
-          500 -> "api_error"
-          _ -> "http_error"
-        end
-        
+        reason =
+          case status do
+            401 -> "authentication_error"
+            403 -> "permission_error"
+            429 -> "rate_limit_error"
+            500 -> "api_error"
+            _ -> "http_error"
+          end
+
         error_chunk = """
         event: error
         data: {"error": {"type": "#{reason}", "message": "HTTP #{status} error"}}
 
         """
+
         Enum.reverse([error_chunk | acc])
-        
+
       %HTTPoison.AsyncStatus{id: ^id, code: _status} ->
         # Good status, continue
         HTTPoison.stream_next(%HTTPoison.AsyncResponse{id: id})
         collect_chunks_loop(id, acc)
-        
+
       %HTTPoison.AsyncHeaders{id: ^id, headers: _headers} ->
         # Headers received, continue
         HTTPoison.stream_next(%HTTPoison.AsyncResponse{id: id})
         collect_chunks_loop(id, acc)
-        
+
       %HTTPoison.AsyncChunk{id: ^id, chunk: chunk} ->
         # Chunk received, continue
         HTTPoison.stream_next(%HTTPoison.AsyncResponse{id: id})
         collect_chunks_loop(id, [chunk | acc])
-        
+
       %HTTPoison.AsyncEnd{id: ^id} ->
         # End of stream, return all chunks
         Enum.reverse(acc)
-        
     after
       30_000 ->
         # Timeout, return what we have
         Enum.reverse(acc)
     end
   end
-
-
 
   # Private functions
 
@@ -133,6 +134,4 @@ defmodule Expi.AI.HttpClient do
   defp map_httpoison_error(:closed), do: {:error, :connection_closed}
   defp map_httpoison_error(:ssl_closed), do: {:error, :ssl_error}
   defp map_httpoison_error(_), do: {:error, :network_error}
-
-
 end

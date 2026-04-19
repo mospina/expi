@@ -1,18 +1,18 @@
 defmodule Expi.AI do
   @moduledoc """
   Main AI module for Expi project.
-  
+
   Provides the core public API for interacting with Large Language Models,
   supporting Anthropic Claude, Google Gemini, and Ollama models.
-  
+
   ## Main Functions
-  
+
   - `get_model/2` - Retrieve model configuration by provider and model ID
   - `complete_simple/2` - Synchronous request-response interaction
   - `stream_simple/2` - Real-time streaming responses
-  
+
   ## Usage
-  
+
       # Get a model
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
       
@@ -38,23 +38,23 @@ defmodule Expi.AI do
 
   @doc """
   Retrieves a model configuration by provider and model ID.
-  
+
   This function gets model configurations from the built-in registry, including
   pricing information, API endpoints, and capability metadata.
-  
+
   ## Parameters
-  
+
   - `provider` - Provider name: "anthropic", "google", or "ollama"
   - `model_id` - Specific model identifier (e.g., "claude-opus-4-5")
-  
+
   ## Returns
-  
+
   - `{:ok, %Model{}}` - Model configuration with pricing and capabilities
   - `{:error, :unknown_provider}` - Unsupported provider
   - `{:error, :model_not_found}` - Model not available for provider
-  
+
   ## Examples
-  
+
       # High-capability reasoning model
       iex> Expi.AI.get_model("anthropic", "claude-opus-4-5")
       {:ok, %Expi.Types.Model{
@@ -80,15 +80,15 @@ defmodule Expi.AI do
       {:error, :model_not_found}
       
   ## Available Models
-  
+
   ### Anthropic Claude
   - `claude-opus-4-5` - Premium reasoning and analysis ($15/$75 per 1M tokens)
   - `claude-sonnet-3-6` - Balanced performance ($3/$15 per 1M tokens)
-  
+
   ### Google Gemini
   - `gemini-pro` - General purpose text model  
   - `gemini-pro-vision` - Multi-modal image understanding
-  
+
   ### Ollama (Local)
   - `llama3.1:8b` - Fast general purpose (free, requires local setup)
   - `codellama:7b` - Code generation specialist (free)
@@ -100,25 +100,25 @@ defmodule Expi.AI do
 
   @doc """
   Performs a synchronous request-response interaction with an LLM.
-  
+
   This function sends a complete context to the model and waits for the full
   response. Use `stream_simple/2` for real-time streaming responses.
-  
+
   ## Parameters
-  
+
   - `model` - Model configuration from `get_model/2`
   - `context` - Conversation context with messages and optional tools
   - `options` - Optional parameters (temperature, max_tokens, etc.)
-  
+
   ## Returns
-  
+
   - `{:ok, %AssistantMessage{}}` - Complete response with usage/cost info
   - `{:error, :missing_api_key}` - Authentication failure
   - `{:error, :rate_limited}` - Provider rate limit exceeded
   - `{:error, :network_error}` - Connection or timeout issues
-  
+
   ## Examples
-  
+
       # Basic text completion
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
       
@@ -206,7 +206,7 @@ defmodule Expi.AI do
       })
       
   ## Error Handling
-  
+
       case Expi.AI.complete_simple(model, context) do
         {:ok, response} ->
           handle_success(response)
@@ -226,8 +226,9 @@ defmodule Expi.AI do
       end
   """
   @spec complete_simple(Model.t(), Context.t()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
-  @spec complete_simple(Model.t(), Context.t(), map()) :: {:ok, AssistantMessage.t()} | {:error, atom()}
-  
+  @spec complete_simple(Model.t(), Context.t(), map()) ::
+          {:ok, AssistantMessage.t()} | {:error, atom()}
+
   def complete_simple(model, context), do: complete_simple(model, context, %{})
 
   def complete_simple(nil, _context, _options) do
@@ -256,49 +257,49 @@ defmodule Expi.AI do
 
   @doc """
   Performs a streaming interaction with an LLM, returning real-time events.
-  
+
   This function returns a stream of `Expi.Types.AssistantMessageEvent` structs
   that are emitted as the model generates its response. Perfect for chat interfaces,
   live coding assistance, or any scenario requiring progressive response display.
-  
+
   ## Parameters
-  
+
   - `model` - Model configuration from `get_model/2`
   - `context` - Conversation context with messages and optional tools
   - `options` - Optional streaming parameters (temperature, thinking mode, etc.)
-  
+
   ## Returns
-  
+
   - `{:ok, Stream.t()}` - Enumerable stream of AssistantMessageEvent structs
   - `{:error, reason}` - Error starting the stream
-  
+
   ## Stream Event Types
-  
+
   The stream emits 12 different event types providing full visibility into the
   model's response generation process:
-  
+
   **Lifecycle Events:**
   - `:start` - Stream begins, includes initial message structure  
   - `:done` - Stream completes, includes final message with usage/cost
   - `:error` - Stream failed, includes error details
-  
+
   **Text Generation:**
   - `:text_start` - Text content block starts
   - `:text_delta` - Incremental text content (most frequent)
   - `:text_end` - Text content block ends
-  
+
   **Reasoning (Claude only):**
   - `:thinking_start` - Model reasoning begins  
   - `:thinking_delta` - Incremental reasoning content
   - `:thinking_end` - Reasoning process ends
-  
+
   **Tool Calling:**
   - `:toolcall_start` - Tool call initiation
   - `:toolcall_delta` - Incremental tool call data  
   - `:toolcall_end` - Tool call completion
-  
+
   ## Examples
-  
+
       # Basic streaming with real-time text display
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
       
@@ -409,7 +410,7 @@ defmodule Expi.AI do
       end
       
   ## Integration Patterns
-  
+
       # GenServer for stateful streaming
       defmodule StreamingHandler do
         use GenServer
@@ -443,7 +444,7 @@ defmodule Expi.AI do
   """
   @spec stream_simple(Model.t(), Context.t()) :: {:ok, stream()} | {:error, atom()}
   @spec stream_simple(Model.t(), Context.t(), map()) :: {:ok, stream()} | {:error, atom()}
-  
+
   def stream_simple(model, context), do: stream_simple(model, context, %{})
 
   def stream_simple(nil, _context, _options) do

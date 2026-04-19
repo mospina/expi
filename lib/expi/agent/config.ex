@@ -1,19 +1,19 @@
 defmodule Expi.Agent.Config do
   @moduledoc """
   Agent configuration management and validation.
-  
+
   This module provides functions for creating, validating, and working with
   agent configuration options. It handles default values, validation rules,
   and configuration merging for flexible agent setup.
-  
+
   ## Core Functions
-  
+
   - **Creation**: `new/1`, `default/0`, `from_keywords/1`
   - **Validation**: `validate/1`, `validate_functions/1`
   - **Merging**: `merge/2`, `apply_defaults/1`
   - **Utilities**: `get_stream_fn/1`, `get_auth_fn/1`
   """
-  
+
   alias Expi.Agent.Types.AgentOptions
 
   alias Expi.Agent.Message
@@ -22,13 +22,13 @@ defmodule Expi.Agent.Config do
 
   @doc """
   Creates a new agent configuration with validation.
-  
+
   ## Parameters
-  
+
   - `options` - Map or keyword list of configuration options
-  
+
   ## Examples
-  
+
       # Basic configuration
       {:ok, config} = AgentConfig.new(%{
         session_id: "user_123",
@@ -51,9 +51,9 @@ defmodule Expi.Agent.Config do
         end,
         max_retry_delay_ms: 60_000
       })
-  
+
   ## Returns
-  
+
   - `{:ok, %AgentOptions{}}` - Valid configuration
   - `{:error, reason}` - Invalid configuration
   """
@@ -61,25 +61,25 @@ defmodule Expi.Agent.Config do
   def new(options) when is_list(options) do
     options |> Map.new() |> new()
   end
-  
+
   def new(options) when is_map(options) do
     config = struct(AgentOptions.default(), options)
-    
+
     case validate(config) do
       :ok -> {:ok, config}
       {:error, reason} -> {:error, reason}
     end
   end
-  
+
   def new(_), do: {:error, :invalid_config}
 
   @doc """
   Creates default agent configuration.
-  
+
   Provides sensible defaults for all configuration options.
-  
+
   ## Examples
-  
+
       config = AgentConfig.default()
       
       # All defaults are set:
@@ -94,11 +94,11 @@ defmodule Expi.Agent.Config do
 
   @doc """
   Creates configuration from keyword list with defaults applied.
-  
+
   Convenience function for common use cases.
-  
+
   ## Examples
-  
+
       config = AgentConfig.from_keywords([
         session_id: "chat_456",
         steering_mode: :one_at_a_time,
@@ -109,17 +109,18 @@ defmodule Expi.Agent.Config do
   def from_keywords(keywords) do
     case new(keywords) do
       {:ok, config} -> config
-      {:error, _reason} -> default()  # Fallback to defaults on error
+      # Fallback to defaults on error
+      {:error, _reason} -> default()
     end
   end
 
   @doc """
   Validates an agent configuration structure.
-  
+
   Checks all fields for proper types and values, including custom functions.
-  
+
   ## Examples
-  
+
       case AgentConfig.validate(config) do
         :ok -> start_agent(config)
         {:error, reason} -> handle_config_error(reason)
@@ -135,15 +136,16 @@ defmodule Expi.Agent.Config do
       {:error, reason} -> {:error, reason}
     end
   end
+
   def validate(_), do: {:error, :invalid_config}
 
   @doc """
   Validates that custom functions in the configuration are properly formed.
-  
+
   Checks function arities and basic structure without executing them.
-  
+
   ## Examples
-  
+
       case AgentConfig.validate_functions(config) do
         :ok -> proceed_with_config(config)
         {:error, :invalid_function} -> fix_function_config()
@@ -163,11 +165,11 @@ defmodule Expi.Agent.Config do
 
   @doc """
   Merges two configurations, with the second taking precedence.
-  
+
   Useful for applying user overrides to default configurations.
-  
+
   ## Examples
-  
+
       base_config = AgentConfig.default()
       user_overrides = %AgentOptions{session_id: "user_789", steering_mode: :one_at_a_time}
       
@@ -180,20 +182,20 @@ defmodule Expi.Agent.Config do
   @spec merge(AgentOptions.t(), AgentOptions.t()) :: AgentOptions.t()
   def merge(%AgentOptions{} = base, %AgentOptions{} = override) do
     # Merge non-nil fields from override into base
-    override_map = 
+    override_map =
       override
       |> Map.from_struct()
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
       |> Map.new()
-    
+
     struct(base, override_map)
   end
 
   @doc """
   Applies default values to any nil fields in the configuration.
-  
+
   ## Examples
-  
+
       partial_config = %AgentOptions{session_id: "abc123"}
       complete_config = AgentConfig.apply_defaults(partial_config)
       
@@ -209,11 +211,11 @@ defmodule Expi.Agent.Config do
 
   @doc """
   Gets the stream function from configuration or returns default.
-  
+
   Provides the function used to stream responses from AI models.
-  
+
   ## Examples
-  
+
       stream_fn = AgentConfig.get_stream_fn(config)
       
       # Use the stream function
@@ -229,16 +231,16 @@ defmodule Expi.Agent.Config do
       Expi.AI.stream_simple(model, context, options)
     end
   end
-  
+
   def get_stream_fn(%AgentOptions{stream_fn: stream_fn}) when is_function(stream_fn) do
     stream_fn
   end
 
   @doc """
   Gets the authentication function from configuration or returns default.
-  
+
   ## Examples
-  
+
       auth_fn = AgentConfig.get_auth_fn(config)
       
       case auth_fn.("anthropic") do
@@ -251,16 +253,16 @@ defmodule Expi.Agent.Config do
     # Default auth function - no custom auth logic
     fn _provider -> nil end
   end
-  
+
   def get_auth_fn(%AgentOptions{get_api_key: auth_fn}) when is_function(auth_fn) do
     auth_fn
   end
 
   @doc """
   Gets the message conversion function from configuration.
-  
+
   ## Examples
-  
+
       convert_fn = AgentConfig.get_convert_fn(config)
       
       case convert_fn.(agent_messages) do
@@ -275,16 +277,16 @@ defmodule Expi.Agent.Config do
       {:ok, Message.filter_for_llm(messages)}
     end
   end
-  
+
   def get_convert_fn(%AgentOptions{convert_to_llm: convert_fn}) when is_function(convert_fn) do
     convert_fn
   end
 
   @doc """
   Gets the context transformation function from configuration.
-  
+
   ## Examples
-  
+
       transform_fn = AgentConfig.get_transform_fn(config)
       
       case transform_fn.(messages, abort_signal) do
@@ -297,18 +299,19 @@ defmodule Expi.Agent.Config do
     # Default transform function - no transformation
     fn messages, _abort_signal -> {:ok, messages} end
   end
-  
-  def get_transform_fn(%AgentOptions{transform_context: transform_fn}) when is_function(transform_fn) do
+
+  def get_transform_fn(%AgentOptions{transform_context: transform_fn})
+      when is_function(transform_fn) do
     transform_fn
   end
 
   @doc """
   Creates a configuration for testing with safe defaults.
-  
+
   Disables network calls and provides mock functions for testing.
-  
+
   ## Examples
-  
+
       test_config = AgentConfig.for_testing(%{
         session_id: "test_session"
       })
@@ -320,14 +323,16 @@ defmodule Expi.Agent.Config do
     test_defaults = %{
       stream_fn: fn _model, _context, _options ->
         # Mock stream for testing
-        {:ok, Stream.map(1..3, fn i -> 
-          %{type: :text_delta, delta: "Test response #{i}"}
-        end)}
+        {:ok,
+         Stream.map(1..3, fn i ->
+           %{type: :text_delta, delta: "Test response #{i}"}
+         end)}
       end,
       get_api_key: fn _provider -> "test_key" end,
-      max_retry_delay_ms: 1000  # Faster for tests
+      # Faster for tests
+      max_retry_delay_ms: 1000
     }
-    
+
     final_options = Map.merge(test_defaults, overrides)
     {:ok, config} = new(final_options)
     config
@@ -335,11 +340,11 @@ defmodule Expi.Agent.Config do
 
   @doc """
   Checks if a configuration has custom functions defined.
-  
+
   Useful for determining if special handling is needed.
-  
+
   ## Examples
-  
+
       if AgentConfig.has_custom_functions?(config) do
         enable_advanced_mode()
       end
@@ -347,35 +352,35 @@ defmodule Expi.Agent.Config do
   @spec has_custom_functions?(AgentOptions.t()) :: boolean()
   def has_custom_functions?(%AgentOptions{} = config) do
     not is_nil(config.convert_to_llm) or
-    not is_nil(config.transform_context) or
-    not is_nil(config.stream_fn) or
-    not is_nil(config.get_api_key)
+      not is_nil(config.transform_context) or
+      not is_nil(config.stream_fn) or
+      not is_nil(config.get_api_key)
   end
 
   @doc """
   Gets a summary of the configuration for logging/debugging.
-  
+
   ## Examples
-  
+
       summary_text = AgentConfig.summary(config)
       Logger.info("Agent config: " <> summary_text)
   """
   @spec summary(AgentOptions.t()) :: String.t()
   def summary(%AgentOptions{} = config) do
-    custom_functions = 
+    custom_functions =
       [
         config.convert_to_llm && "convert",
-        config.transform_context && "transform", 
+        config.transform_context && "transform",
         config.stream_fn && "stream",
         config.get_api_key && "auth"
       ]
       |> Enum.filter(& &1)
       |> Enum.join(", ")
-      
+
     function_part = if custom_functions != "", do: ", custom: [#{custom_functions}]", else: ""
-    
+
     "steering: #{config.steering_mode}, follow_up: #{config.follow_up_mode}, " <>
-    "retry_delay: #{config.max_retry_delay_ms}ms" <> function_part
+      "retry_delay: #{config.max_retry_delay_ms}ms" <> function_part
   end
 
   # Private validation functions
@@ -385,10 +390,13 @@ defmodule Expi.Agent.Config do
     cond do
       not is_nil(config.session_id) and not is_binary(config.session_id) ->
         {:error, :invalid_session_id}
+
       not is_integer(config.max_retry_delay_ms) or config.max_retry_delay_ms < 0 ->
         {:error, :invalid_retry_delay}
+
       not is_nil(config.initial_state) and not is_map(config.initial_state) ->
         {:error, :invalid_initial_state}
+
       true ->
         :ok
     end
@@ -397,7 +405,7 @@ defmodule Expi.Agent.Config do
   @spec validate_modes(AgentOptions.t()) :: :ok | config_error()
   defp validate_modes(%AgentOptions{steering_mode: steering, follow_up_mode: follow_up}) do
     valid_modes = [:all, :one_at_a_time]
-    
+
     cond do
       steering not in valid_modes -> {:error, :invalid_steering_mode}
       follow_up not in valid_modes -> {:error, :invalid_follow_up_mode}

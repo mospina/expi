@@ -2,6 +2,7 @@ defmodule Expi.Providers.GeminiTest do
   use ExUnit.Case, async: true
 
   alias Expi.Providers.Gemini
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -115,7 +116,8 @@ defmodule Expi.Providers.GeminiTest do
               %Expi.Types.TextContent{type: :text, text: "Describe this image in detail"},
               %Expi.Types.ImageContent{
                 type: :image,
-                data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                data:
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
               }
             ],
@@ -139,7 +141,9 @@ defmodule Expi.Providers.GeminiTest do
           },
           %AssistantMessage{
             role: :assistant,
-            content: [%TextContent{type: :text, text: "That's a lovely color! Blue is very calming."}],
+            content: [
+              %TextContent{type: :text, text: "That's a lovely color! Blue is very calming."}
+            ],
             api: "google-generative-ai",
             provider: "google",
             model: "gemini-pro",
@@ -149,7 +153,12 @@ defmodule Expi.Providers.GeminiTest do
               cache_read: 0,
               cache_write: 0,
               total_tokens: 20,
-              cost: %Expi.Types.Cost{input: 0.004, output: 0.018, cache_read: 0.0, cache_write: 0.0}
+              cost: %Expi.Types.Cost{
+                input: 0.004,
+                output: 0.018,
+                cache_read: 0.0,
+                cache_write: 0.0
+              }
             },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
@@ -166,6 +175,7 @@ defmodule Expi.Providers.GeminiTest do
       assert %AssistantMessage{} = response
 
       text_content = Enum.find(response.content, &(&1.type == :text))
+
       if text_content do
         assert String.contains?(String.downcase(text_content.text), "blue")
       end
@@ -208,6 +218,7 @@ defmodule Expi.Providers.GeminiTest do
 
       # Check for function calls
       function_calls = Enum.filter(response.content, &(&1.type == :tool_call))
+
       if length(function_calls) > 0 do
         function_call = List.first(function_calls)
         assert %ToolCall{} = function_call
@@ -238,9 +249,11 @@ defmodule Expi.Providers.GeminiTest do
       case Gemini.complete(model, context, options) do
         {:ok, response} ->
           assert %AssistantMessage{} = response
+
         {:error, :content_filtered} ->
           # Content was blocked by safety filters
           :ok
+
         {:error, _} ->
           # Other errors acceptable in unit tests
           :ok
@@ -382,11 +395,11 @@ defmodule Expi.Providers.GeminiTest do
       assert {:ok, payload} = Gemini.build_request_payload(model, context, %{})
       assert payload["tools"] != nil
       assert is_list(payload["tools"])
-      
+
       function_declarations = List.first(payload["tools"])["functionDeclarations"]
       assert is_list(function_declarations)
       assert length(function_declarations) == 1
-      
+
       func = List.first(function_declarations)
       assert func["name"] == "calculate"
       assert func["description"] == "Perform mathematical calculations"
@@ -406,8 +419,19 @@ defmodule Expi.Providers.GeminiTest do
             api: "google-generative-ai",
             provider: "google",
             model: "gemini-pro",
-            usage: %Usage{input: 1, output: 3, cache_read: 0, cache_write: 0, total_tokens: 4,
-              cost: %Expi.Types.Cost{input: 0.0005, output: 0.0045, cache_read: 0.0, cache_write: 0.0}},
+            usage: %Usage{
+              input: 1,
+              output: 3,
+              cache_read: 0,
+              cache_write: 0,
+              total_tokens: 4,
+              cost: %Expi.Types.Cost{
+                input: 0.0005,
+                output: 0.0045,
+                cache_read: 0.0,
+                cache_write: 0.0
+              }
+            },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
           },
@@ -424,7 +448,8 @@ defmodule Expi.Providers.GeminiTest do
 
       [user1, assistant1, user2] = payload["contents"]
       assert user1["role"] == "user"
-      assert assistant1["role"] == "model"  # Google uses "model" instead of "assistant"
+      # Google uses "model" instead of "assistant"
+      assert assistant1["role"] == "model"
       assert user2["role"] == "user"
     end
 
@@ -617,7 +642,9 @@ defmodule Expi.Providers.GeminiTest do
       assert String.contains?(quota_error, "quota") or String.contains?(quota_error, "limit")
 
       auth_error = Gemini.format_error(:unauthorized, "API key not valid")
-      assert String.contains?(auth_error, "API key") or String.contains?(auth_error, "authentication")
+
+      assert String.contains?(auth_error, "API key") or
+               String.contains?(auth_error, "authentication")
     end
   end
 end

@@ -30,8 +30,13 @@ defmodule Expi.Providers.Base do
   @spec validate_model(Model.t() | nil) :: :ok | {:error, atom()}
   def validate_model(nil), do: {:error, :invalid_model}
   def validate_model(%Model{id: id}) when id == "" or is_nil(id), do: {:error, :invalid_model_id}
-  def validate_model(%Model{base_url: url}) when url == "" or is_nil(url), do: {:error, :invalid_base_url}
-  def validate_model(%Model{provider: provider}) when provider == "" or is_nil(provider), do: {:error, :invalid_provider}
+
+  def validate_model(%Model{base_url: url}) when url == "" or is_nil(url),
+    do: {:error, :invalid_base_url}
+
+  def validate_model(%Model{provider: provider}) when provider == "" or is_nil(provider),
+    do: {:error, :invalid_provider}
+
   def validate_model(%Model{}), do: :ok
 
   @doc """
@@ -39,6 +44,7 @@ defmodule Expi.Providers.Base do
   """
   @spec validate_options(map() | nil) :: :ok | {:error, atom()}
   def validate_options(nil), do: :ok
+
   def validate_options(options) when is_map(options) do
     with :ok <- validate_temperature(Map.get(options, :temperature)),
          :ok <- validate_max_tokens(Map.get(options, :max_tokens)) do
@@ -60,9 +66,9 @@ defmodule Expi.Providers.Base do
   @spec prepare_headers(Model.t(), list()) :: list()
   def prepare_headers(%Model{headers: model_headers}, custom_headers) do
     default_headers = [{"Content-Type", "application/json"}]
-    
+
     model_header_list = Map.to_list(model_headers || %{})
-    
+
     # Combine all headers, with custom taking precedence
     (default_headers ++ model_header_list ++ custom_headers)
     |> Enum.reverse()
@@ -104,7 +110,8 @@ defmodule Expi.Providers.Base do
     Enum.map(messages, &format_single_message/1)
   end
 
-  defp format_single_message(%UserMessage{role: :user, content: content}) when is_binary(content) do
+  defp format_single_message(%UserMessage{role: :user, content: content})
+       when is_binary(content) do
     %{"role" => "user", "content" => content}
   end
 
@@ -136,6 +143,7 @@ defmodule Expi.Providers.Base do
   @spec parse_json_safely(String.t() | nil) :: {:ok, map()} | {:error, atom()}
   def parse_json_safely(nil), do: {:error, :empty_response}
   def parse_json_safely(""), do: {:error, :empty_response}
+
   def parse_json_safely(data) when is_binary(data) do
     Jason.decode(data)
     |> case do
@@ -143,6 +151,7 @@ defmodule Expi.Providers.Base do
       {:error, _} -> {:error, :invalid_json}
     end
   end
+
   def parse_json_safely(_), do: {:error, :invalid_input}
 
   @doc """
@@ -150,6 +159,7 @@ defmodule Expi.Providers.Base do
   """
   @spec merge_default_options(map(), map() | nil) :: map()
   def merge_default_options(defaults, nil), do: defaults
+
   def merge_default_options(defaults, custom) do
     Map.merge(defaults, custom)
   end
@@ -164,6 +174,7 @@ defmodule Expi.Providers.Base do
     |> Enum.map(& &1.text)
     |> Enum.join("")
   end
+
   def extract_text_content([]), do: ""
 
   defp is_text_content?(%TextContent{type: :text}), do: true
@@ -213,8 +224,12 @@ defmodule Expi.Providers.Base do
   defp do_retry(func, max_retries, base_delay_ms, attempt) do
     try do
       case func.() do
-        {:ok, result} -> {:ok, result}
-        {:error, _} = error when attempt + 1 >= max_retries -> error
+        {:ok, result} ->
+          {:ok, result}
+
+        {:error, _} = error when attempt + 1 >= max_retries ->
+          error
+
         {:error, _} ->
           delay = base_delay_ms * :math.pow(2, attempt)
           Process.sleep(trunc(delay))

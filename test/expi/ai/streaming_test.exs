@@ -3,6 +3,7 @@ defmodule Expi.AI.StreamingTest do
 
   alias Expi.AI
   alias Expi.AI.Streaming
+
   alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
@@ -31,11 +32,11 @@ defmodule Expi.AI.StreamingTest do
         {:ok, stream} ->
           events = Enum.to_list(stream)
           assert length(events) > 0
-          
+
           # Should start with :start event
           first_event = List.first(events)
           assert first_event.type == :start
-          
+
           # Should end with :done event
           last_event = List.last(events)
           assert last_event.type == :done
@@ -151,14 +152,14 @@ defmodule Expi.AI.StreamingTest do
 
     test "handles malformed chunks gracefully" do
       chunk = "invalid data\n\ndata: {invalid json}\n\n"
-      
+
       events = Streaming.parse_sse_chunk(chunk)
       assert events == []
     end
 
     test "filters out [DONE] markers" do
       chunk = "data: [DONE]\n\n"
-      
+
       events = Streaming.parse_sse_chunk(chunk)
       assert events == []
     end
@@ -177,6 +178,7 @@ defmodule Expi.AI.StreamingTest do
         "delta" => %{"type" => "text_delta", "text" => "Hello"},
         "index" => 0
       }
+
       result = Streaming.standardize_event(event, "anthropic")
       assert result.type == :text_delta
       assert result.content_index == 0
@@ -188,6 +190,7 @@ defmodule Expi.AI.StreamingTest do
         "delta" => %{"type" => "thinking_delta", "thinking" => "Let me think..."},
         "index" => 0
       }
+
       result = Streaming.standardize_event(event, "anthropic")
       assert result.type == :thinking_delta
       assert result.content_index == 0
@@ -198,6 +201,7 @@ defmodule Expi.AI.StreamingTest do
         "type" => "message_delta",
         "delta" => %{"stop_reason" => "end_turn"}
       }
+
       result = Streaming.standardize_event(event, "anthropic")
       assert result.type == :done
       assert result.reason == :stop
@@ -210,6 +214,7 @@ defmodule Expi.AI.StreamingTest do
           %{"content" => %{"parts" => [%{"text" => "Gemini response"}]}}
         ]
       }
+
       result = Streaming.standardize_event(event, "google")
       assert result.type == :text_delta
       assert result.delta == "Gemini response"
@@ -220,6 +225,7 @@ defmodule Expi.AI.StreamingTest do
           %{"finishReason" => "STOP"}
         ]
       }
+
       result = Streaming.standardize_event(event, "google")
       assert result.type == :done
       assert result.reason == :stop
@@ -232,6 +238,7 @@ defmodule Expi.AI.StreamingTest do
           %{"delta" => %{"content" => "Ollama response"}}
         ]
       }
+
       result = Streaming.standardize_event(event, "ollama")
       assert result.type == :text_delta
       assert result.delta == "Ollama response"
@@ -242,6 +249,7 @@ defmodule Expi.AI.StreamingTest do
           %{"finish_reason" => "stop"}
         ]
       }
+
       result = Streaming.standardize_event(event, "ollama")
       assert result.type == :done
       assert result.reason == :stop
@@ -272,6 +280,7 @@ defmodule Expi.AI.StreamingTest do
         stop_reason: nil,
         timestamp: 0
       }
+
       {:ok, message: message}
     end
 
@@ -284,7 +293,7 @@ defmodule Expi.AI.StreamingTest do
     test "handles text start events", %{message: message} do
       event = %AssistantMessageEvent{type: :text_start, content_index: 0}
       result = Streaming.accumulate_message(message, event)
-      
+
       assert length(result.content) == 1
       assert %TextContent{text: ""} = Enum.at(result.content, 0)
     end
@@ -292,10 +301,10 @@ defmodule Expi.AI.StreamingTest do
     test "handles text delta events", %{message: message} do
       # First add a text content slot
       message = %{message | content: [%TextContent{type: :text, text: "Hello"}]}
-      
+
       event = %AssistantMessageEvent{type: :text_delta, content_index: 0, delta: " world"}
       result = Streaming.accumulate_message(message, event)
-      
+
       text_content = Enum.at(result.content, 0)
       assert text_content.text == "Hello world"
     end
@@ -303,18 +312,21 @@ defmodule Expi.AI.StreamingTest do
     test "handles thinking start events", %{message: message} do
       event = %AssistantMessageEvent{type: :thinking_start, content_index: 0}
       result = Streaming.accumulate_message(message, event)
-      
+
       assert length(result.content) == 1
       assert %ThinkingContent{thinking: ""} = Enum.at(result.content, 0)
     end
 
     test "handles thinking delta events", %{message: message} do
       # First add a thinking content slot
-      message = %{message | content: [%ThinkingContent{type: :thinking, thinking: "Let me think"}]}
-      
+      message = %{
+        message
+        | content: [%ThinkingContent{type: :thinking, thinking: "Let me think"}]
+      }
+
       event = %AssistantMessageEvent{type: :thinking_delta, content_index: 0, delta: " more..."}
       result = Streaming.accumulate_message(message, event)
-      
+
       thinking_content = Enum.at(result.content, 0)
       assert thinking_content.thinking == "Let me think more..."
     end
@@ -322,7 +334,7 @@ defmodule Expi.AI.StreamingTest do
     test "handles done events", %{message: message} do
       event = %AssistantMessageEvent{type: :done, reason: :stop}
       result = Streaming.accumulate_message(message, event)
-      
+
       assert result.stop_reason == :stop
       assert result.timestamp > message.timestamp
     end
@@ -332,8 +344,9 @@ defmodule Expi.AI.StreamingTest do
         type: :error,
         error: %{message: "Something went wrong"}
       }
+
       result = Streaming.accumulate_message(message, event)
-      
+
       assert result.error_message == "Something went wrong"
       assert result.timestamp > message.timestamp
     end
@@ -342,10 +355,10 @@ defmodule Expi.AI.StreamingTest do
       # Test that we can handle events for different content indices
       event1 = %AssistantMessageEvent{type: :text_start, content_index: 0}
       message = Streaming.accumulate_message(message, event1)
-      
+
       event2 = %AssistantMessageEvent{type: :thinking_start, content_index: 1}
       result = Streaming.accumulate_message(message, event2)
-      
+
       assert length(result.content) == 2
       assert %TextContent{} = Enum.at(result.content, 0)
       assert %ThinkingContent{} = Enum.at(result.content, 1)
@@ -432,6 +445,7 @@ defmodule Expi.AI.StreamingTest do
   describe "stream validation" do
     test "validates stream events conform to spec" do
       {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")
+
       context = %Context{
         messages: [
           %UserMessage{

@@ -52,7 +52,11 @@ defmodule Expi.AI.Telemetry do
   def emit_token_usage(provider, model_id, input_tokens, output_tokens, metadata \\ %{}) do
     :telemetry.execute(
       [:expi, :tokens, :usage],
-      %{input_tokens: input_tokens, output_tokens: output_tokens, total_tokens: input_tokens + output_tokens},
+      %{
+        input_tokens: input_tokens,
+        output_tokens: output_tokens,
+        total_tokens: input_tokens + output_tokens
+      },
       %{provider: provider, model_id: model_id}
       |> Map.merge(metadata)
     )
@@ -106,7 +110,7 @@ defmodule Expi.AI.Telemetry do
     try do
       # Get Hackney pool stats if available
       pool_stats = :hackney_pool.get_stats(:ai_pool)
-      
+
       :telemetry.execute(
         [:expi, :http, :pool_stats],
         %{
@@ -117,7 +121,8 @@ defmodule Expi.AI.Telemetry do
         %{pool: :ai_pool}
       )
     rescue
-      _ -> :ok  # Ignore errors if pool stats not available
+      # Ignore errors if pool stats not available
+      _ -> :ok
     end
   end
 
@@ -152,11 +157,11 @@ defmodule Expi.AI.Telemetry do
   @doc """
   Execute a function while timing it and emitting telemetry events.
   """
-  @spec time_operation(String.t(), String.t(), (() -> any()), map()) :: any()
+  @spec time_operation(String.t(), String.t(), (-> any()), map()) :: any()
   def time_operation(provider, model_id, fun, metadata \\ %{}) do
     emit_request_start(provider, model_id, metadata)
     start_time = System.monotonic_time(:millisecond)
-    
+
     try do
       result = fun.()
       duration = System.monotonic_time(:millisecond) - start_time
@@ -174,7 +179,7 @@ defmodule Expi.AI.Telemetry do
   @doc """
   Time an operation and return both result and duration.
   """
-  @spec time_operation_with_duration((() -> any())) :: {any(), integer()}
+  @spec time_operation_with_duration((-> any())) :: {any(), integer()}
   def time_operation_with_duration(fun) do
     start_time = System.monotonic_time(:millisecond)
     result = fun.()
@@ -191,7 +196,7 @@ defmodule Expi.AI.Telemetry do
   def attach_default_handlers do
     events = [
       [:expi, :request, :start],
-      [:expi, :request, :stop], 
+      [:expi, :request, :stop],
       [:expi, :request, :error],
       [:expi, :tokens, :usage],
       [:expi, :cost, :tracking],
@@ -221,7 +226,7 @@ defmodule Expi.AI.Telemetry do
   # Private telemetry handler function
 
   defp handle_telemetry_event([:expi, :request, :stop], measurements, metadata, _config) do
-    Logger.info("Request completed", 
+    Logger.info("Request completed",
       provider: metadata.provider,
       model_id: metadata.model_id,
       duration_ms: measurements.duration

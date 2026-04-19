@@ -7,31 +7,36 @@ defmodule Expi.HttpClientTest do
   # Mock HTTP responses for testing
   defmodule MockHTTP do
     def request(:post, _url, _body, _headers, _options) do
-      {:ok, %HTTPoison.Response{
-        status_code: 200,
-        body: Jason.encode!(%{
-          "choices" => [%{
-            "message" => %{
-              "content" => "Hello world",
-              "role" => "assistant"
-            }
-          }],
-          "usage" => %{
-            "prompt_tokens" => 10,
-            "completion_tokens" => 5,
-            "total_tokens" => 15
-          }
-        }),
-        headers: [{"content-type", "application/json"}]
-      }}
+      {:ok,
+       %HTTPoison.Response{
+         status_code: 200,
+         body:
+           Jason.encode!(%{
+             "choices" => [
+               %{
+                 "message" => %{
+                   "content" => "Hello world",
+                   "role" => "assistant"
+                 }
+               }
+             ],
+             "usage" => %{
+               "prompt_tokens" => 10,
+               "completion_tokens" => 5,
+               "total_tokens" => 15
+             }
+           }),
+         headers: [{"content-type", "application/json"}]
+       }}
     end
 
     def request(:get, _url, _headers, _options) do
-      {:ok, %HTTPoison.Response{
-        status_code: 200,
-        body: Jason.encode!(%{"status" => "ok"}),
-        headers: [{"content-type", "application/json"}]
-      }}
+      {:ok,
+       %HTTPoison.Response{
+         status_code: 200,
+         body: Jason.encode!(%{"status" => "ok"}),
+         headers: [{"content-type", "application/json"}]
+       }}
     end
   end
 
@@ -52,6 +57,7 @@ defmodule Expi.HttpClientTest do
         {:ok, response} ->
           assert response.status_code in [200, 201]
           assert response.body != nil
+
         {:error, _} ->
           # Network errors are acceptable in unit tests
           :ok
@@ -67,7 +73,8 @@ defmodule Expi.HttpClientTest do
       # Verify function can handle the parameters without errors
       case HttpClient.post(url, body, headers, options) do
         {:ok, _} -> :ok
-        {:error, _} -> :ok  # Network errors acceptable
+        # Network errors acceptable
+        {:error, _} -> :ok
       end
     end
 
@@ -94,6 +101,7 @@ defmodule Expi.HttpClientTest do
         {:ok, response} ->
           assert response.status_code == 200
           assert response.body != nil
+
         {:error, _} ->
           # Network errors acceptable in unit tests
           :ok
@@ -107,7 +115,8 @@ defmodule Expi.HttpClientTest do
 
       case HttpClient.get(url, headers, options) do
         {:ok, _} -> :ok
-        {:error, _} -> :ok  # Network errors acceptable
+        # Network errors acceptable
+        {:error, _} -> :ok
       end
     end
   end
@@ -122,6 +131,7 @@ defmodule Expi.HttpClientTest do
       case HttpClient.stream_post(url, body, headers, options) do
         {:ok, stream_ref} ->
           assert is_reference(stream_ref) or is_pid(stream_ref) or is_binary(stream_ref)
+
         {:error, _} ->
           # Network/streaming errors acceptable in unit tests
           :ok
@@ -136,7 +146,8 @@ defmodule Expi.HttpClientTest do
 
       case HttpClient.stream_post(url, body, headers, options) do
         {:ok, _} -> :ok
-        {:error, _} -> :ok  # Network errors acceptable
+        # Network errors acceptable
+        {:error, _} -> :ok
       end
     end
 
@@ -214,7 +225,9 @@ defmodule Expi.HttpClientTest do
       }
 
       custom_headers = [{"Request-Header", "request-value"}]
-      {_url, merged_headers, _options} = HttpClient.build_request_config(model, %{}, custom_headers)
+
+      {_url, merged_headers, _options} =
+        HttpClient.build_request_config(model, %{}, custom_headers)
 
       assert {"Model-Header", "model-value"} in merged_headers
       assert {"Request-Header", "request-value"} in merged_headers
@@ -231,7 +244,8 @@ defmodule Expi.HttpClientTest do
     end
 
     test "handles malformed JSON responses" do
-      malformed_json = ~s({"message": "Hello")  # Missing closing brace
+      # Missing closing brace
+      malformed_json = ~s({"message": "Hello")
 
       assert {:error, :invalid_json} = HttpClient.parse_json_response(malformed_json)
     end

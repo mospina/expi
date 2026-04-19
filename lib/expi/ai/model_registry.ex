@@ -1,7 +1,7 @@
 defmodule Expi.ModelRegistry do
   @moduledoc """
   Model registry for hardcoded model definitions with easy extensibility.
-  
+
   Provides model lookup, validation, and cost calculation functionality
   for supported AI providers: Anthropic, Google, and Ollama.
   """
@@ -109,6 +109,7 @@ defmodule Expi.ModelRegistry do
         provider_models = Map.get(state, provider, [])
         Map.put(state, provider, [model | provider_models])
       end)
+
       :ok
     else
       {:error, "Registry not available"}
@@ -213,6 +214,7 @@ defmodule Expi.ModelRegistry do
 
   defp check_provider_existence(provider) do
     all_providers = Agent.get(@registry_name, fn state -> Map.keys(state) end)
+
     if provider in all_providers do
       {:error, :model_not_found}
     else

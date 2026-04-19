@@ -1,7 +1,7 @@
 defmodule Expi.Config do
   @moduledoc """
   Configuration management for the Expi AI module.
-  
+
   Handles loading and validation of configuration values from application
   environment following Elixir best practices.
   """
@@ -84,8 +84,10 @@ defmodule Expi.Config do
     case Application.get_env(:expi, key, default) do
       {:system, env_var} ->
         System.get_env(env_var)
+
       {:system, env_var, fallback} ->
         System.get_env(env_var, fallback)
+
       value ->
         value
     end

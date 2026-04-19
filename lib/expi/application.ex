@@ -1,7 +1,7 @@
 defmodule Expi.Application do
   @moduledoc """
   OTP Application for Expi AI module.
-  
+
   Starts the supervision tree, configures connection pools, and initializes telemetry.
   """
 
@@ -15,18 +15,19 @@ defmodule Expi.Application do
   def start(_type, _args) do
     # Initialize connection pools first
     :ok = setup_connection_pools()
-    
+
     # Attach telemetry handlers
     :ok = Expi.AI.Telemetry.attach_default_handlers()
-    
+
     children = [
-      {Expi.ModelRegistry, []}  # Corrected to use proper module name
+      # Corrected to use proper module name
+      {Expi.ModelRegistry, []}
     ]
 
     opts = [strategy: :one_for_one, name: Expi.Supervisor]
-    
+
     Logger.info("Starting Expi application with production configuration")
-    
+
     Supervisor.start_link(children, opts)
   end
 
@@ -46,30 +47,34 @@ defmodule Expi.Application do
   defp setup_connection_pools do
     # Get pool configurations from application config
     pool_configs = Application.get_env(:expi, :http_pools, [])
-    
+
     # Setup main HTTP pool for regular requests
-    ai_pool_config = Keyword.get(pool_configs, :ai_pool, [
-      timeout: 30_000,
-      max_connections: 100,
-      pool_size: 50
-    ])
+    ai_pool_config =
+      Keyword.get(pool_configs, :ai_pool,
+        timeout: 30_000,
+        max_connections: 100,
+        pool_size: 50
+      )
 
     # Setup streaming pool for Server-Sent Events
-    stream_pool_config = Keyword.get(pool_configs, :ai_stream_pool, [
-      timeout: 300_000,  # 5 minutes in milliseconds
-      max_connections: 50,
-      pool_size: 25
-    ])
+    stream_pool_config =
+      Keyword.get(pool_configs, :ai_stream_pool,
+        # 5 minutes in milliseconds
+        timeout: 300_000,
+        max_connections: 50,
+        pool_size: 25
+      )
 
     # Start the pools
     case start_hackney_pools(ai_pool_config, stream_pool_config) do
       :ok ->
         Logger.info("HTTP connection pools initialized successfully")
         :ok
-      
+
       {:error, reason} ->
         Logger.warning("Failed to initialize connection pools: #{inspect(reason)}")
-        :ok  # Don't fail application start - pools can be started later
+        # Don't fail application start - pools can be started later
+        :ok
     end
   end
 
@@ -77,15 +82,15 @@ defmodule Expi.Application do
     try do
       # Start main AI pool for regular HTTP requests
       :hackney_pool.start_pool(:ai_pool, ai_config)
-      
+
       # Start streaming pool for long-running SSE connections  
       :hackney_pool.start_pool(:ai_stream_pool, stream_config)
-      
-      Logger.debug("Hackney pools started", 
-        ai_pool: ai_config, 
+
+      Logger.debug("Hackney pools started",
+        ai_pool: ai_config,
         stream_pool: stream_config
       )
-      
+
       :ok
     rescue
       error ->

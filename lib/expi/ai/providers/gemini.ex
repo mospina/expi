@@ -6,6 +6,7 @@ defmodule Expi.Providers.Gemini do
 
   alias Expi.AI.{Auth, HttpClient}
   alias Expi.Providers.Base
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -24,7 +25,7 @@ defmodule Expi.Providers.Gemini do
 
   @default_safety_settings [
     %{
-      "category" => "HARM_CATEGORY_HARASSMENT", 
+      "category" => "HARM_CATEGORY_HARASSMENT",
       "threshold" => "BLOCK_MEDIUM_AND_ABOVE"
     },
     %{
@@ -65,7 +66,7 @@ defmodule Expi.Providers.Gemini do
   @spec build_request_payload(Model.t(), Context.t(), map()) :: {:ok, map()} | {:error, atom()}
   def build_request_payload(_model, context, options) do
     merged_options = Base.merge_default_options(@default_options, options)
-    
+
     contents = format_gemini_messages(context.messages, context.system_prompt)
 
     generation_config = %{
@@ -121,7 +122,8 @@ defmodule Expi.Providers.Gemini do
           content: parsed_content,
           api: "google-generative-ai",
           provider: "google",
-          model: "gemini-pro", # Would be extracted from request context in real implementation
+          # Would be extracted from request context in real implementation
+          model: "gemini-pro",
           usage: usage_struct,
           stop_reason: stop_reason,
           timestamp: System.system_time(:millisecond)
@@ -166,7 +168,8 @@ defmodule Expi.Providers.Gemini do
       {:ok, api_key} ->
         headers = [{"x-goog-api-key", api_key}]
         {:ok, Base.prepare_headers(model, headers)}
-      {:error, reason} -> 
+
+      {:error, reason} ->
         {:error, reason}
     end
   end
@@ -178,11 +181,13 @@ defmodule Expi.Providers.Gemini do
     case HttpClient.post(url, body, headers) do
       {:ok, %{status: 200, body: response_body}} ->
         Base.parse_json_safely(response_body)
+
       {:ok, %{status: status, body: body}} ->
         case Base.parse_json_safely(body) do
           {:ok, error_response} -> {:error, {status, error_response}}
           {:error, _} -> Base.handle_http_error(status, body)
         end
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -190,20 +195,22 @@ defmodule Expi.Providers.Gemini do
 
   defp format_gemini_messages(messages, system_prompt) do
     formatted_messages = Enum.map(messages, &format_gemini_message/1)
-    
+
     # Add system instruction if present
     if system_prompt do
       system_content = %{
         "role" => "user",
         "parts" => [%{"text" => "System: #{system_prompt}"}]
       }
+
       [system_content | formatted_messages]
     else
       formatted_messages
     end
   end
 
-  defp format_gemini_message(%UserMessage{role: :user, content: content}) when is_binary(content) do
+  defp format_gemini_message(%UserMessage{role: :user, content: content})
+       when is_binary(content) do
     %{
       "role" => "user",
       "parts" => [%{"text" => content}]
@@ -212,14 +219,16 @@ defmodule Expi.Providers.Gemini do
 
   defp format_gemini_message(%UserMessage{role: :user, content: content}) when is_list(content) do
     parts = Enum.map(content, &format_gemini_part/1)
+
     %{
-      "role" => "user", 
+      "role" => "user",
       "parts" => parts
     }
   end
 
   defp format_gemini_message(%AssistantMessage{role: :assistant, content: content}) do
     text = Base.extract_text_content(content)
+
     %{
       "role" => "model",
       "parts" => [%{"text" => text}]
@@ -244,19 +253,21 @@ defmodule Expi.Providers.Gemini do
   defp maybe_add_safety_settings(payload, %{safety_settings: settings}) do
     Map.put(payload, "safetySettings", settings)
   end
+
   defp maybe_add_safety_settings(payload, _) do
     Map.put(payload, "safetySettings", @default_safety_settings)
   end
 
   defp maybe_add_tools(payload, nil), do: payload
   defp maybe_add_tools(payload, []), do: payload
+
   defp maybe_add_tools(payload, tools) do
     function_declarations = Enum.map(tools, &format_gemini_tool/1)
-    
+
     tools_spec = %{
       "functionDeclarations" => function_declarations
     }
-    
+
     Map.put(payload, "tools", [tools_spec])
   end
 
@@ -283,10 +294,10 @@ defmodule Expi.Providers.Gemini do
   defp parse_gemini_part(part), do: part
 
   defp parse_gemini_usage(%{
-    "promptTokenCount" => input,
-    "candidatesTokenCount" => output,
-    "totalTokenCount" => total
-  }) do
+         "promptTokenCount" => input,
+         "candidatesTokenCount" => output,
+         "totalTokenCount" => total
+       }) do
     %Usage{
       input: input,
       output: output,
@@ -328,19 +339,19 @@ defmodule Expi.Providers.Gemini do
          {:ok, payload} <- build_streaming_payload(model, context, options),
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
-      
       # Attempt production streaming - if it fails, return the error
       body = Jason.encode!(payload)
+
       case Expi.AI.Streaming.create_production_stream(url, body, headers, "google", model.id) do
         {:ok, raw_stream} ->
           # Transform Gemini SSE events to standardized events
-          transformed_stream = 
+          transformed_stream =
             raw_stream
             |> Stream.map(fn event -> transform_gemini_event(event, payload) end)
             |> Stream.filter(fn event -> not is_nil(event) end)
-          
+
           {:ok, transformed_stream}
-        
+
         {:error, reason} ->
           # Return the actual error (missing API key, network issues, etc.)
           {:error, reason}
@@ -354,11 +365,13 @@ defmodule Expi.Providers.Gemini do
     # Same as regular payload but with streamGenerationConfig
     with {:ok, payload} <- build_request_payload(model, context, options) do
       streaming_config = %{
-        "generationConfig" => Map.merge(
-          Map.get(payload, "generationConfig", %{}),
-          %{"stream" => true}
-        )
+        "generationConfig" =>
+          Map.merge(
+            Map.get(payload, "generationConfig", %{}),
+            %{"stream" => true}
+          )
       }
+
       streaming_payload = Map.merge(payload, streaming_config)
       {:ok, streaming_payload}
     end
@@ -371,16 +384,19 @@ defmodule Expi.Providers.Gemini do
         {"Accept", "text/event-stream"},
         {"Cache-Control", "no-cache"} | headers
       ]
+
       {:ok, streaming_headers}
     end
   end
 
   defp build_streaming_url(model) do
     base_url = model.base_url || "https://generativelanguage.googleapis.com"
+
     case Expi.AI.Auth.get_api_key("google") do
       {:ok, api_key} ->
         url = "#{base_url}/v1beta/models/#{model.id}:streamGenerateContent?key=#{api_key}"
         {:ok, url}
+
       {:error, reason} ->
         {:error, reason}
     end

@@ -1,32 +1,32 @@
 defmodule Expi.Agent.Queue do
   @moduledoc """
   Message queue operations for agent conversation management.
-  
+
   This module provides sophisticated message queuing capabilities that enable
   complex conversation flows with support for steering messages (urgent
   interruptions) and follow-up messages (natural continuations). The queue
   system is designed to handle different processing modes and priority levels
   to create natural conversation experiences.
-  
+
   ## Queue Types
-  
+
   **Steering Queue**: High-priority messages that interrupt current processing
   - Delivered immediately after current tool execution completes
   - Skip remaining tool calls in the current turn
   - Used for urgent user interruptions or system messages
-  
+
   **Follow-up Queue**: Normal-priority messages for natural conversation flow
   - Delivered only when the agent has no more pending work
   - Allow natural conversation continuation
   - Used for non-urgent follow-up questions or clarifications
-  
+
   ## Processing Modes
-  
+
   - **All Mode**: Process all queued messages in a single turn
   - **One-at-a-time Mode**: Process one message per turn for natural pacing
-  
+
   ## Core Functions
-  
+
   - **Queue Operations**: `create_queue/0`, `add_message/3`, `get_messages/2`, `clear_queue/2`
   - **Priority Handling**: `add_steering/2`, `add_follow_up/2`, `has_steering/1`, `has_follow_up/1`
   - **Processing**: `drain_queue/3`, `process_by_mode/3`, `merge_queues/2`
@@ -38,28 +38,28 @@ defmodule Expi.Agent.Queue do
   @type queue_type :: :steering | :follow_up
   @type processing_mode :: :all | :one_at_a_time
   @type message_queue :: %{
-    steering: [Message.t()],
-    follow_up: [Message.t()],
-    created_at: pos_integer(),
-    last_processed: pos_integer() | nil
-  }
+          steering: [Message.t()],
+          follow_up: [Message.t()],
+          created_at: pos_integer(),
+          last_processed: pos_integer() | nil
+        }
   @type queue_stats :: %{
-    steering_count: non_neg_integer(),
-    follow_up_count: non_neg_integer(),
-    total_count: non_neg_integer(),
-    oldest_timestamp: pos_integer() | nil,
-    newest_timestamp: pos_integer() | nil,
-    queue_age: non_neg_integer()
-  }
+          steering_count: non_neg_integer(),
+          follow_up_count: non_neg_integer(),
+          total_count: non_neg_integer(),
+          oldest_timestamp: pos_integer() | nil,
+          newest_timestamp: pos_integer() | nil,
+          queue_age: non_neg_integer()
+        }
 
   @doc """
   Creates a new empty message queue.
-  
+
   Initializes a message queue with separate steering and follow-up queues,
   along with metadata for tracking queue lifecycle and statistics.
-  
+
   ## Examples
-  
+
       queue = Queue.create_queue()
       
       # Queue starts empty with timestamps
@@ -78,19 +78,19 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Adds a message to the specified queue type.
-  
+
   Messages are added to the appropriate queue based on their priority
   and processing requirements. Steering messages are prioritized for
   immediate processing, while follow-up messages wait for natural breaks.
-  
+
   ## Parameters
-  
+
   - `queue` - The current message queue
   - `message` - The message to add
   - `queue_type` - Either `:steering` or `:follow_up`
-  
+
   ## Examples
-  
+
       # Add urgent steering message
       user_interrupt = Message.user("Stop that and do this instead")
       updated_queue = Queue.add_message(queue, user_interrupt, :steering)
@@ -108,6 +108,7 @@ defmodule Expi.Agent.Queue do
     case queue_type do
       :steering ->
         %{queue | steering: queue.steering ++ [message]}
+
       :follow_up ->
         %{queue | follow_up: queue.follow_up ++ [message]}
     end
@@ -115,12 +116,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Adds a steering message with high priority processing.
-  
+
   Steering messages are designed to interrupt current processing and
   redirect the agent's attention to urgent matters.
-  
+
   ## Examples
-  
+
       # User interruption
       interrupt_msg = Message.user("Cancel that and help me with this urgent issue")
       updated_queue = Queue.add_steering(queue, interrupt_msg)
@@ -136,12 +137,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Adds a follow-up message for natural conversation flow.
-  
+
   Follow-up messages wait until the agent completes its current work
   and naturally reaches a stopping point before being processed.
-  
+
   ## Examples
-  
+
       # Natural follow-up question
       follow_up = Message.user("That's helpful! Can you give me an example?")
       updated_queue = Queue.add_follow_up(queue, follow_up)
@@ -157,18 +158,18 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Retrieves messages from the specified queue type.
-  
+
   Returns messages in the order they were added (FIFO), optionally
   limiting the number of messages returned.
-  
+
   ## Parameters
-  
+
   - `queue` - The message queue
   - `queue_type` - Which queue to retrieve from (`:steering` or `:follow_up`)
   - `limit` - Maximum number of messages to return (optional)
-  
+
   ## Examples
-  
+
       # Get all steering messages
       steering_messages = Queue.get_messages(queue, :steering)
       
@@ -183,11 +184,12 @@ defmodule Expi.Agent.Queue do
   """
   @spec get_messages(message_queue(), queue_type(), pos_integer() | nil) :: [Message.t()]
   def get_messages(queue, queue_type, limit \\ nil) when queue_type in [:steering, :follow_up] do
-    messages = case queue_type do
-      :steering -> queue.steering
-      :follow_up -> queue.follow_up
-    end
-    
+    messages =
+      case queue_type do
+        :steering -> queue.steering
+        :follow_up -> queue.follow_up
+      end
+
     case limit do
       nil -> messages
       n when is_integer(n) and n > 0 -> Enum.take(messages, n)
@@ -197,12 +199,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Clears messages from the specified queue type.
-  
+
   Removes all or a specified number of messages from the queue,
   typically after they have been processed.
-  
+
   ## Examples
-  
+
       # Clear all steering messages after processing
       cleared_queue = Queue.clear_queue(queue, :steering)
       
@@ -214,11 +216,14 @@ defmodule Expi.Agent.Queue do
     case {queue_type, count} do
       {:steering, :all} ->
         %{queue | steering: [], last_processed: System.system_time(:millisecond)}
+
       {:follow_up, :all} ->
         %{queue | follow_up: [], last_processed: System.system_time(:millisecond)}
+
       {:steering, n} when is_integer(n) ->
         remaining = Enum.drop(queue.steering, n)
         %{queue | steering: remaining, last_processed: System.system_time(:millisecond)}
+
       {:follow_up, n} when is_integer(n) ->
         remaining = Enum.drop(queue.follow_up, n)
         %{queue | follow_up: remaining, last_processed: System.system_time(:millisecond)}
@@ -227,9 +232,9 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Checks if the queue has any steering messages.
-  
+
   ## Examples
-  
+
       if Queue.has_steering?(queue) do
         handle_urgent_interruption()
       else
@@ -243,9 +248,9 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Checks if the queue has any follow-up messages.
-  
+
   ## Examples
-  
+
       if Queue.has_follow_up?(queue) do
         prepare_for_follow_up_processing()
       else
@@ -259,9 +264,9 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Checks if the queue is completely empty.
-  
+
   ## Examples
-  
+
       if Queue.is_empty?(queue) do
         agent_idle()
       else
@@ -275,19 +280,19 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Drains messages from the queue based on processing mode.
-  
+
   Extracts messages for processing while respecting the specified
   processing mode and priority rules. Steering messages are always
   processed before follow-up messages.
-  
+
   ## Parameters
-  
+
   - `queue` - The message queue
   - `queue_type` - Which queue to drain (`:steering` or `:follow_up`)
   - `mode` - Processing mode (`:all` or `:one_at_a_time`)
-  
+
   ## Examples
-  
+
       # Drain all steering messages for immediate processing
       {messages, updated_queue} = Queue.drain_queue(queue, :steering, :all)
       
@@ -298,23 +303,24 @@ defmodule Expi.Agent.Queue do
       processing_mode = get_agent_processing_mode()
       {batch, new_queue} = Queue.drain_queue(queue, :follow_up, processing_mode)
   """
-  @spec drain_queue(message_queue(), queue_type(), processing_mode()) :: 
-        {[Message.t()], message_queue()}
+  @spec drain_queue(message_queue(), queue_type(), processing_mode()) ::
+          {[Message.t()], message_queue()}
   def drain_queue(queue, queue_type, mode) when queue_type in [:steering, :follow_up] do
     messages = get_messages(queue, queue_type)
-    
+
     case mode do
       :all ->
         # Take all messages
         updated_queue = clear_queue(queue, queue_type)
         {messages, updated_queue}
-        
+
       :one_at_a_time ->
         # Take only the first message
         case messages do
-          [] -> 
+          [] ->
             {[], queue}
-          [first | _rest] -> 
+
+          [first | _rest] ->
             updated_queue = clear_queue(queue, queue_type, 1)
             {[first], updated_queue}
         end
@@ -323,19 +329,19 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Processes queued messages by priority and mode.
-  
+
   Implements the complete message processing logic, handling steering
   messages first (with interruption semantics) followed by follow-up
   messages (with natural flow semantics).
-  
+
   ## Parameters
-  
+
   - `queue` - The message queue
   - `steering_mode` - How to process steering messages (`:all` or `:one_at_a_time`)
   - `follow_up_mode` - How to process follow-up messages (`:all` or `:one_at_a_time`)
-  
+
   ## Examples
-  
+
       # Process all urgent messages, one follow-up at a time
       result = Queue.process_by_mode(queue, :all, :one_at_a_time)
       
@@ -353,22 +359,22 @@ defmodule Expi.Agent.Queue do
           agent_idle()
       end
   """
-  @spec process_by_mode(message_queue(), processing_mode(), processing_mode()) :: 
-        {:steering, [Message.t()], message_queue()} |
-        {:follow_up, [Message.t()], message_queue()} |
-        {:empty, message_queue()}
+  @spec process_by_mode(message_queue(), processing_mode(), processing_mode()) ::
+          {:steering, [Message.t()], message_queue()}
+          | {:follow_up, [Message.t()], message_queue()}
+          | {:empty, message_queue()}
   def process_by_mode(queue, steering_mode, follow_up_mode) do
     cond do
       has_steering?(queue) ->
         # Process steering messages first (interruption semantics)
         {messages, updated_queue} = drain_queue(queue, :steering, steering_mode)
         {:steering, messages, updated_queue}
-        
+
       has_follow_up?(queue) ->
         # Process follow-up messages (natural flow semantics)
         {messages, updated_queue} = drain_queue(queue, :follow_up, follow_up_mode)
         {:follow_up, messages, updated_queue}
-        
+
       true ->
         # No messages to process
         {:empty, queue}
@@ -377,12 +383,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Merges two message queues, maintaining priority order.
-  
+
   Combines queues while preserving the ordering semantics and
   priority relationships between different message types.
-  
+
   ## Examples
-  
+
       # Merge queues from different sources
       combined_queue = Queue.merge_queues(primary_queue, secondary_queue)
       
@@ -401,12 +407,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Gets comprehensive statistics about the message queue.
-  
+
   Provides detailed information about queue state, message counts,
   timing information, and queue health metrics.
-  
+
   ## Examples
-  
+
       stats = Queue.queue_stats(queue)
       
       IO.puts("Total messages: " <> to_string(stats.total_count))
@@ -424,18 +430,19 @@ defmodule Expi.Agent.Queue do
     steering_count = length(queue.steering)
     follow_up_count = length(queue.follow_up)
     total_count = steering_count + follow_up_count
-    
+
     all_messages = queue.steering ++ queue.follow_up
     timestamps = Enum.map(all_messages, &Message.timestamp/1)
-    
-    {oldest_timestamp, newest_timestamp} = if timestamps != [] do
-      {Enum.min(timestamps), Enum.max(timestamps)}
-    else
-      {nil, nil}
-    end
-    
+
+    {oldest_timestamp, newest_timestamp} =
+      if timestamps != [] do
+        {Enum.min(timestamps), Enum.max(timestamps)}
+      else
+        {nil, nil}
+      end
+
     queue_age = System.system_time(:millisecond) - queue.created_at
-    
+
     %{
       steering_count: steering_count,
       follow_up_count: follow_up_count,
@@ -448,9 +455,9 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Gets the total size of the message queue.
-  
+
   ## Examples
-  
+
       queue_size = Queue.queue_size(queue)
       
       if queue_size > max_queue_size do
@@ -464,12 +471,12 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Filters messages in the queue based on criteria.
-  
+
   Allows selective processing or removal of messages based on
   content, timestamp, or other characteristics.
-  
+
   ## Examples
-  
+
       # Filter old messages
       cutoff_time = System.system_time(:millisecond) - 300_000  # 5 minutes
       filtered_queue = Queue.filter_messages(queue, fn message ->
@@ -485,21 +492,18 @@ defmodule Expi.Agent.Queue do
   def filter_messages(queue, filter_fn) when is_function(filter_fn, 1) do
     filtered_steering = Enum.filter(queue.steering, filter_fn)
     filtered_follow_up = Enum.filter(queue.follow_up, filter_fn)
-    
-    %{queue | 
-      steering: filtered_steering,
-      follow_up: filtered_follow_up
-    }
+
+    %{queue | steering: filtered_steering, follow_up: filtered_follow_up}
   end
 
   @doc """
   Applies backpressure by limiting queue size.
-  
+
   Implements queue size management by removing oldest messages
   when the queue exceeds specified limits.
-  
+
   ## Examples
-  
+
       # Limit total queue size
       managed_queue = Queue.apply_backpressure(queue, max_size: 100)
       
@@ -514,28 +518,30 @@ defmodule Expi.Agent.Queue do
     max_size = Keyword.get(options, :max_size)
     max_steering = Keyword.get(options, :max_steering)
     max_follow_up = Keyword.get(options, :max_follow_up)
-    
+
     # Apply steering queue limit
-    limited_steering = if max_steering && length(queue.steering) > max_steering do
-      Enum.take(queue.steering, -max_steering)
-    else
-      queue.steering
-    end
-    
+    limited_steering =
+      if max_steering && length(queue.steering) > max_steering do
+        Enum.take(queue.steering, -max_steering)
+      else
+        queue.steering
+      end
+
     # Apply follow-up queue limit
-    limited_follow_up = if max_follow_up && length(queue.follow_up) > max_follow_up do
-      Enum.take(queue.follow_up, -max_follow_up)
-    else
-      queue.follow_up
-    end
-    
+    limited_follow_up =
+      if max_follow_up && length(queue.follow_up) > max_follow_up do
+        Enum.take(queue.follow_up, -max_follow_up)
+      else
+        queue.follow_up
+      end
+
     # Apply total size limit
     updated_queue = %{queue | steering: limited_steering, follow_up: limited_follow_up}
-    
+
     if max_size && queue_size(updated_queue) > max_size do
       # Remove oldest messages first from follow-up, then steering if necessary
       excess = queue_size(updated_queue) - max_size
-      
+
       if excess <= length(limited_follow_up) do
         # Remove from follow-up only
         trimmed_follow_up = Enum.drop(limited_follow_up, excess)
@@ -553,9 +559,9 @@ defmodule Expi.Agent.Queue do
 
   @doc """
   Creates a queue processing summary for logging and debugging.
-  
+
   ## Examples
-  
+
       summary = Queue.summarize_processing(queue, processed_messages, processing_time)
       Logger.info("Queue processing complete: " <> summary)
   """
@@ -563,9 +569,9 @@ defmodule Expi.Agent.Queue do
   def summarize_processing(queue, processed_messages, processing_time_ms) do
     stats = queue_stats(queue)
     processed_count = length(processed_messages)
-    
+
     "Processed #{processed_count} messages in #{processing_time_ms}ms. " <>
-    "Remaining: #{stats.steering_count} steering, #{stats.follow_up_count} follow-up"
+      "Remaining: #{stats.steering_count} steering, #{stats.follow_up_count} follow-up"
   end
 
   # Private helper functions

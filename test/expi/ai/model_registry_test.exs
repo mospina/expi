@@ -162,7 +162,8 @@ defmodule Expi.ModelRegistryTest do
 
     test "returns error for invalid model" do
       invalid_model = %Model{
-        id: "",  # Invalid empty ID
+        # Invalid empty ID
+        id: "",
         name: "Test",
         api: "test-api",
         provider: "test",
@@ -193,12 +194,13 @@ defmodule Expi.ModelRegistryTest do
     test "calculates usage cost correctly" do
       {:ok, model} = ModelRegistry.get_model("anthropic", "claude-opus-4-5")
 
-      cost = ModelRegistry.calculate_usage_cost(model, %{
-        input: 1000,
-        output: 500,
-        cache_read: 0,
-        cache_write: 0
-      })
+      cost =
+        ModelRegistry.calculate_usage_cost(model, %{
+          input: 1000,
+          output: 500,
+          cache_read: 0,
+          cache_write: 0
+        })
 
       expected_input_cost = 1000 * model.cost.input / 1_000_000
       expected_output_cost = 500 * model.cost.output / 1_000_000
@@ -233,7 +235,8 @@ defmodule Expi.ModelRegistryTest do
 
     test "prevents registering invalid models" do
       invalid_model = %Model{
-        id: "",  # Invalid
+        # Invalid
+        id: "",
         name: "Invalid",
         api: "test",
         provider: "test",

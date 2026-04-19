@@ -2,6 +2,7 @@ defmodule Expi.Providers.AnthropicTest do
   use ExUnit.Case, async: true
 
   alias Expi.Providers.Anthropic
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -96,7 +97,8 @@ defmodule Expi.Providers.AnthropicTest do
               %Expi.Types.TextContent{type: :text, text: "What's in this image?"},
               %Expi.Types.ImageContent{
                 type: :image,
-                data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+                data:
+                  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
                 mime_type: "image/png"
               }
             ],
@@ -132,6 +134,7 @@ defmodule Expi.Providers.AnthropicTest do
       text_content = Enum.find(response.content, &(&1.type == :text))
 
       assert thinking_content != nil or text_content != nil
+
       if thinking_content do
         assert %ThinkingContent{} = thinking_content
         assert is_binary(thinking_content.thinking)
@@ -167,6 +170,7 @@ defmodule Expi.Providers.AnthropicTest do
 
       # Check if tool calls were made
       tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
+
       if length(tool_calls) > 0 do
         tool_call = List.first(tool_calls)
         assert %ToolCall{} = tool_call
@@ -214,6 +218,7 @@ defmodule Expi.Providers.AnthropicTest do
 
       # Response should reference the name from conversation history
       text_content = Enum.find(response.content, &(&1.type == :text))
+
       if text_content do
         assert String.contains?(String.downcase(text_content.text), "alice")
       end
@@ -234,7 +239,14 @@ defmodule Expi.Providers.AnthropicTest do
       }
 
       assert {:error, reason} = Anthropic.complete(invalid_model, context, %{})
-      assert reason in [:unauthorized, :authentication_failed, :invalid_api_key, :missing_api_key, :bad_request]
+
+      assert reason in [
+               :unauthorized,
+               :authentication_failed,
+               :invalid_api_key,
+               :missing_api_key,
+               :bad_request
+             ]
     end
 
     test "handles rate limiting", %{model: model} do
@@ -250,9 +262,12 @@ defmodule Expi.Providers.AnthropicTest do
 
       # This would be mocked in real tests to return 429
       case Anthropic.complete(model, context, %{}) do
-        {:ok, _} -> :ok  # Normal response
-        {:error, :rate_limited} -> :ok  # Expected error
-        {:error, _} -> :ok  # Other errors acceptable in unit tests
+        # Normal response
+        {:ok, _} -> :ok
+        # Expected error
+        {:error, :rate_limited} -> :ok
+        # Other errors acceptable in unit tests
+        {:error, _} -> :ok
       end
     end
 
@@ -269,9 +284,12 @@ defmodule Expi.Providers.AnthropicTest do
 
       # Test error handling for service unavailable
       case Anthropic.complete(model, context, %{}) do
-        {:ok, _} -> :ok  # Normal response
-        {:error, :service_unavailable} -> :ok  # Expected error
-        {:error, _} -> :ok  # Other errors acceptable
+        # Normal response
+        {:ok, _} -> :ok
+        # Expected error
+        {:error, :service_unavailable} -> :ok
+        # Other errors acceptable
+        {:error, _} -> :ok
       end
     end
 
@@ -534,7 +552,9 @@ defmodule Expi.Providers.AnthropicTest do
       assert String.contains?(String.downcase(error_msg), "rate")
 
       auth_error = Anthropic.format_error(:unauthorized, "Invalid API key")
-      assert String.contains?(auth_error, "authentication") or String.contains?(auth_error, "API key")
+
+      assert String.contains?(auth_error, "authentication") or
+               String.contains?(auth_error, "API key")
     end
   end
 end

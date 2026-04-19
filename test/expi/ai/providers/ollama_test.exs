@@ -2,6 +2,7 @@ defmodule Expi.Providers.OllamaTest do
   use ExUnit.Case, async: true
 
   alias Expi.Providers.Ollama
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -73,7 +74,7 @@ defmodule Expi.Providers.OllamaTest do
       options = %{temperature: 0.7, max_tokens: 100}
 
       case Ollama.complete(model, context, options) do
-        {:ok, response} -> 
+        {:ok, response} ->
           # Success case - verify structure
           assert %AssistantMessage{} = response
           assert response.role == :assistant
@@ -84,6 +85,7 @@ defmodule Expi.Providers.OllamaTest do
           assert length(response.content) > 0
           assert %Usage{} = response.usage
           assert response.stop_reason in [:stop, :length, :tool_use]
+
         {:error, reason} ->
           # Network errors expected in test environment
           assert reason in [:network_error, :connection_refused, :service_unavailable]
@@ -110,6 +112,7 @@ defmodule Expi.Providers.OllamaTest do
           text_content = Enum.find(response.content, &(&1.type == :text))
           assert text_content != nil
           assert is_binary(text_content.text)
+
         {:error, reason} ->
           # Network errors expected in test environment
           assert reason in [:network_error, :connection_refused, :service_unavailable]
@@ -126,7 +129,13 @@ defmodule Expi.Providers.OllamaTest do
           },
           %AssistantMessage{
             role: :assistant,
-            content: [%TextContent{type: :text, text: "Elixir is a great language! It's functional and has excellent concurrency support."}],
+            content: [
+              %TextContent{
+                type: :text,
+                text:
+                  "Elixir is a great language! It's functional and has excellent concurrency support."
+              }
+            ],
             api: "openai-completions",
             provider: "ollama",
             model: "llama3.1:8b",
@@ -154,9 +163,11 @@ defmodule Expi.Providers.OllamaTest do
           assert %AssistantMessage{} = response
 
           text_content = Enum.find(response.content, &(&1.type == :text))
+
           if text_content do
             assert String.contains?(String.downcase(text_content.text), "elixir")
           end
+
         {:error, reason} ->
           # Network errors expected in test environment
           assert reason in [:network_error, :connection_refused, :service_unavailable]
@@ -196,18 +207,21 @@ defmodule Expi.Providers.OllamaTest do
       case Ollama.complete(model, context, %{}) do
         {:ok, response} ->
           assert %AssistantMessage{} = response
-          
+
           # Check for tool calls
           tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
+
           if length(tool_calls) > 0 do
             tool_call = List.first(tool_calls)
             assert %ToolCall{} = tool_call
             assert tool_call.name == "calculator"
             assert is_map(tool_call.arguments)
           end
+
         {:error, :tool_calling_not_supported} ->
           # Some Ollama models might not support tool calling
           :ok
+
         {:error, _} ->
           # Other errors acceptable in unit tests
           :ok
@@ -247,10 +261,14 @@ defmodule Expi.Providers.OllamaTest do
       }
 
       case Ollama.complete(invalid_model, context, %{}) do
-        {:ok, _} -> :ok  # Model might be available
-        {:error, :model_not_found} -> :ok  # Expected error
-        {:error, :not_found} -> :ok  # Alternative error format
-        {:error, _} -> :ok  # Other connection errors acceptable
+        # Model might be available
+        {:ok, _} -> :ok
+        # Expected error
+        {:error, :model_not_found} -> :ok
+        # Alternative error format
+        {:error, :not_found} -> :ok
+        # Other connection errors acceptable
+        {:error, _} -> :ok
       end
     end
 
@@ -271,6 +289,7 @@ defmodule Expi.Providers.OllamaTest do
       case Ollama.complete(model, context, options) do
         {:ok, response} ->
           assert response.stop_reason in [:length, :stop]
+
         {:error, _} ->
           # Connection errors acceptable in unit tests
           :ok
@@ -311,7 +330,8 @@ defmodule Expi.Providers.OllamaTest do
       assert payload["max_tokens"] == 150
       assert payload["temperature"] == 0.8
       assert is_list(payload["messages"])
-      assert length(payload["messages"]) == 2  # system + user message
+      # system + user message
+      assert length(payload["messages"]) == 2
 
       [system_msg, user_msg] = payload["messages"]
       assert system_msg["role"] == "system"
@@ -334,8 +354,14 @@ defmodule Expi.Providers.OllamaTest do
             api: "openai-completions",
             provider: "ollama",
             model: "llama3.1:8b",
-            usage: %Usage{input: 5, output: 6, cache_read: 0, cache_write: 0, total_tokens: 11,
-              cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}},
+            usage: %Usage{
+              input: 5,
+              output: 6,
+              cache_read: 0,
+              cache_write: 0,
+              total_tokens: 11,
+              cost: %Expi.Types.Cost{input: 0.0, output: 0.0, cache_read: 0.0, cache_write: 0.0}
+            },
             stop_reason: :stop,
             timestamp: System.system_time(:millisecond) - 1000
           },
@@ -409,11 +435,13 @@ defmodule Expi.Providers.OllamaTest do
       }
 
       assert {:ok, payload} = Ollama.build_request_payload(model, context, %{})
-      
+
       # Should have system message first
       system_message = List.first(payload["messages"])
       assert system_message["role"] == "system"
-      assert system_message["content"] == "You are a helpful coding assistant specializing in Elixir."
+
+      assert system_message["content"] ==
+               "You are a helpful coding assistant specializing in Elixir."
     end
 
     test "handles empty system prompt", %{model: model} do
@@ -429,7 +457,7 @@ defmodule Expi.Providers.OllamaTest do
       }
 
       assert {:ok, payload} = Ollama.build_request_payload(model, context, %{})
-      
+
       # Should only have user message
       assert length(payload["messages"]) == 1
       user_message = List.first(payload["messages"])
@@ -442,7 +470,7 @@ defmodule Expi.Providers.OllamaTest do
       api_response = %{
         "id" => "chatcmpl-abc123",
         "object" => "chat.completion",
-        "created" => 1677652288,
+        "created" => 1_677_652_288,
         "model" => "llama3.1:8b",
         "choices" => [
           %{
@@ -483,7 +511,7 @@ defmodule Expi.Providers.OllamaTest do
       api_response = %{
         "id" => "chatcmpl-def456",
         "object" => "chat.completion",
-        "created" => 1677652300,
+        "created" => 1_677_652_300,
         "model" => "llama3.1:8b",
         "choices" => [
           %{
@@ -527,7 +555,7 @@ defmodule Expi.Providers.OllamaTest do
       api_response = %{
         "id" => "chatcmpl-ghi789",
         "object" => "chat.completion",
-        "created" => 1677652350,
+        "created" => 1_677_652_350,
         "model" => "llama3.1:8b",
         "choices" => [
           %{
@@ -586,7 +614,7 @@ defmodule Expi.Providers.OllamaTest do
       api_response = %{
         "id" => "chatcmpl-empty",
         "object" => "chat.completion",
-        "created" => 1677652400,
+        "created" => 1_677_652_400,
         "model" => "llama3.1:8b",
         "choices" => [],
         "usage" => %{
@@ -610,7 +638,9 @@ defmodule Expi.Providers.OllamaTest do
     end
 
     test "provides helpful error messages" do
-      conn_error = Ollama.format_error(:connection_refused, "Connection to localhost:11434 failed")
+      conn_error =
+        Ollama.format_error(:connection_refused, "Connection to localhost:11434 failed")
+
       assert is_binary(conn_error)
       assert String.contains?(conn_error, "connection") or String.contains?(conn_error, "Ollama")
 
@@ -623,7 +653,9 @@ defmodule Expi.Providers.OllamaTest do
       assert String.contains?(conn_error, "Ollama") or String.contains?(conn_error, "running")
 
       model_error = Ollama.format_error(:model_not_found, "")
-      assert String.contains?(model_error, "pull") or String.contains?(model_error, "install") or String.contains?(model_error, "not found")
+
+      assert String.contains?(model_error, "pull") or String.contains?(model_error, "install") or
+               String.contains?(model_error, "not found")
     end
   end
 
@@ -631,16 +663,21 @@ defmodule Expi.Providers.OllamaTest do
     test "checks if Ollama service is running" do
       case Ollama.health_check("http://localhost:11434") do
         {:ok, :healthy} -> :ok
-        {:error, :service_unavailable} -> :ok  # Service not running
-        {:error, _} -> :ok  # Other connection errors
+        # Service not running
+        {:error, :service_unavailable} -> :ok
+        # Other connection errors
+        {:error, _} -> :ok
       end
     end
 
     test "validates model availability" do
       case Ollama.model_available?("http://localhost:11434", "llama3.1:8b") do
-        {:ok, true} -> :ok  # Model available
-        {:ok, false} -> :ok  # Model not available
-        {:error, _} -> :ok  # Service not reachable
+        # Model available
+        {:ok, true} -> :ok
+        # Model not available
+        {:ok, false} -> :ok
+        # Service not reachable
+        {:error, _} -> :ok
       end
     end
   end

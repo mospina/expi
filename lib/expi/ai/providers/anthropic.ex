@@ -7,6 +7,7 @@ defmodule Expi.Providers.Anthropic do
   alias Expi.AI.HttpClient
   alias Expi.AI.Auth
   alias Expi.Providers.Base
+
   alias Expi.Types.{
     AssistantMessage,
     Context,
@@ -48,7 +49,7 @@ defmodule Expi.Providers.Anthropic do
   @spec build_request_payload(Model.t(), Context.t(), map()) :: {:ok, map()} | {:error, atom()}
   def build_request_payload(model, context, options) do
     merged_options = Base.merge_default_options(@default_options, options)
-    
+
     messages = format_anthropic_messages(context.messages)
 
     payload = %{
@@ -135,8 +136,10 @@ defmodule Expi.Providers.Anthropic do
           {"x-api-key", api_key},
           {"anthropic-version", "2023-06-01"}
         ]
+
         {:ok, Base.prepare_headers(model, headers)}
-      {:error, reason} -> 
+
+      {:error, reason} ->
         {:error, reason}
     end
   end
@@ -148,14 +151,17 @@ defmodule Expi.Providers.Anthropic do
     case HttpClient.post(url, body, headers) do
       {:ok, %{status: 200, body: response_body}} ->
         Base.parse_json_safely(response_body)
+
       {:ok, %{status: status, body: body}} ->
         case Base.parse_json_safely(body) do
-          {:ok, error_response} -> 
+          {:ok, error_response} ->
             # Pass the parsed error response for handling by parse_response
             {:ok, error_response}
-          {:error, _} -> 
+
+          {:error, _} ->
             Base.handle_http_error(status, body)
         end
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -165,11 +171,13 @@ defmodule Expi.Providers.Anthropic do
     Enum.map(messages, &format_anthropic_message/1)
   end
 
-  defp format_anthropic_message(%UserMessage{role: :user, content: content}) when is_binary(content) do
+  defp format_anthropic_message(%UserMessage{role: :user, content: content})
+       when is_binary(content) do
     %{"role" => "user", "content" => content}
   end
 
-  defp format_anthropic_message(%UserMessage{role: :user, content: content}) when is_list(content) do
+  defp format_anthropic_message(%UserMessage{role: :user, content: content})
+       when is_list(content) do
     formatted_content = Enum.map(content, &format_content_block/1)
     %{"role" => "user", "content" => formatted_content}
   end
@@ -198,12 +206,14 @@ defmodule Expi.Providers.Anthropic do
 
   defp maybe_add_system_prompt(payload, nil), do: payload
   defp maybe_add_system_prompt(payload, ""), do: payload
+
   defp maybe_add_system_prompt(payload, system_prompt) do
     Map.put(payload, "system", system_prompt)
   end
 
   defp maybe_add_tools(payload, nil), do: payload
   defp maybe_add_tools(payload, []), do: payload
+
   defp maybe_add_tools(payload, tools) do
     formatted_tools = Enum.map(tools, &format_tool/1)
     Map.put(payload, "tools", formatted_tools)
@@ -217,9 +227,11 @@ defmodule Expi.Providers.Anthropic do
     }
   end
 
-  defp maybe_add_reasoning(payload, %{reasoning: reasoning}) when reasoning in ["high", "medium", "low"] do
+  defp maybe_add_reasoning(payload, %{reasoning: reasoning})
+       when reasoning in ["high", "medium", "low"] do
     Map.put(payload, "reasoning", reasoning)
   end
+
   defp maybe_add_reasoning(payload, _), do: payload
 
   defp parse_content_blocks(content) when is_list(content) do
@@ -241,11 +253,11 @@ defmodule Expi.Providers.Anthropic do
   defp parse_content_block(block), do: block
 
   defp parse_usage(%{
-    "input_tokens" => input,
-    "output_tokens" => output,
-    "cache_creation_input_tokens" => cache_write,
-    "cache_read_input_tokens" => cache_read
-  }) do
+         "input_tokens" => input,
+         "output_tokens" => output,
+         "cache_creation_input_tokens" => cache_write,
+         "cache_read_input_tokens" => cache_read
+       }) do
     total = input + output
 
     %Usage{
@@ -297,15 +309,15 @@ defmodule Expi.Providers.Anthropic do
          {:ok, payload} <- build_streaming_payload(model, context, options),
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
-      
       # Attempt production streaming - if it fails, return the error
       body = Jason.encode!(payload)
+
       case Expi.AI.Streaming.create_production_stream(url, body, headers, "anthropic", model.id) do
         {:ok, event_stream} ->
           # create_production_stream already converts to AssistantMessageEvent format
           # No additional transformation needed
           {:ok, event_stream}
-        
+
         {:error, reason} ->
           # Return the actual error (missing API key, network issues, etc.)
           {:error, reason}
@@ -330,6 +342,7 @@ defmodule Expi.Providers.Anthropic do
         {"Accept", "text/event-stream"},
         {"Cache-Control", "no-cache"} | headers
       ]
+
       {:ok, streaming_headers}
     end
   end
@@ -339,8 +352,6 @@ defmodule Expi.Providers.Anthropic do
     url = "#{base_url}/v1/messages"
     {:ok, url}
   end
-
-
 
   defp parse_stop_reason("end_turn"), do: :stop
   defp parse_stop_reason("max_tokens"), do: :max_tokens

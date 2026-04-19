@@ -1,7 +1,7 @@
 defmodule Expi.Agent.Message do
   @moduledoc """
   AgentMessage type definition and utilities.
-  
+
   This module defines the AgentMessage type as a union of all supported
   message types and provides utilities for working with agent messages.
   """
@@ -11,12 +11,12 @@ defmodule Expi.Agent.Message do
 
   @typedoc """
   Agent message type - union of all supported message types.
-  
+
   Core message types from Expi.Types:
   - UserMessage - Messages from users
   - AssistantMessage - Messages from AI assistants
   - ToolResultMessage - Results from tool executions
-  
+
   Applications can extend this by implementing the AgentMessage protocol
   for custom message types (notifications, artifacts, status messages, etc.).
   """
@@ -24,12 +24,12 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Converts an agent message to an LLM-compatible message.
-  
+
   Uses the AgentMessage protocol to handle conversion. Returns nil
   for message types that should not be sent to the LLM.
-  
+
   ## Examples
-  
+
       iex> user_msg = %UserMessage{content: "Hello", timestamp: 123}
       iex> AgentMessage.to_llm_message(user_msg)
       %UserMessage{content: "Hello", timestamp: 123}
@@ -41,9 +41,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Gets the message type identifier.
-  
+
   ## Examples
-  
+
       iex> user_msg = %UserMessage{role: :user}
       iex> AgentMessage.message_type(user_msg)
       :user
@@ -55,9 +55,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Gets the message timestamp.
-  
+
   ## Examples
-  
+
       iex> user_msg = %UserMessage{timestamp: 1234567890}
       iex> AgentMessage.timestamp(user_msg)
       1234567890
@@ -69,9 +69,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Extracts content from the message.
-  
+
   ## Examples
-  
+
       iex> user_msg = %UserMessage{content: "Hello world"}
       iex> AgentMessage.content(user_msg)
       "Hello world"
@@ -83,9 +83,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Validates if a message is properly formatted.
-  
+
   ## Examples
-  
+
       iex> user_msg = %UserMessage{role: :user, content: "Hello", timestamp: 123}
       iex> AgentMessage.valid?(user_msg)
       true
@@ -97,9 +97,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Filters a list of agent messages to only those that should be sent to the LLM.
-  
+
   ## Examples
-  
+
       iex> messages = [user_msg, notification, assistant_msg]
       iex> AgentMessage.filter_for_llm(messages)
       [user_msg, assistant_msg]  # notification filtered out
@@ -108,14 +108,14 @@ defmodule Expi.Agent.Message do
   def filter_for_llm(messages) do
     messages
     |> Enum.map(&to_llm_message/1)
-    |> Enum.filter(& &1 != nil)
+    |> Enum.filter(&(&1 != nil))
   end
 
   @doc """
   Sorts messages by timestamp in ascending order.
-  
+
   ## Examples
-  
+
       iex> AgentMessage.sort_by_timestamp([msg3, msg1, msg2])
       [msg1, msg2, msg3]  # sorted by timestamp
   """
@@ -126,11 +126,11 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Groups messages by their type.
-  
+
   Returns a map with message types as keys and lists of messages as values.
-  
+
   ## Examples
-  
+
       iex> messages = [user_msg, assistant_msg, user_msg2]
       iex> AgentMessage.group_by_type(messages)
       %{user: [user_msg, user_msg2], assistant: [assistant_msg]}
@@ -142,9 +142,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Validates that all messages in a list are properly formatted.
-  
+
   ## Examples
-  
+
       iex> AgentMessage.validate_all([valid_msg1, valid_msg2])
       :ok
       
@@ -157,18 +157,21 @@ defmodule Expi.Agent.Message do
     |> Enum.with_index()
     |> Enum.find(fn {message, _index} -> not valid?(message) end)
     |> case do
-      nil -> 
+      nil ->
         :ok
-      {invalid_message, index} -> 
-        {:error, {:invalid_message, index, "Message at index #{index} is invalid: #{inspect(invalid_message)}"}}
+
+      {invalid_message, index} ->
+        {:error,
+         {:invalid_message, index,
+          "Message at index #{index} is invalid: #{inspect(invalid_message)}"}}
     end
   end
 
   @doc """
   Creates a new user message with the current timestamp.
-  
+
   ## Examples
-  
+
       iex> AgentMessage.user("Hello there")
       %UserMessage{role: :user, content: "Hello there", timestamp: current_time}
   """
@@ -183,9 +186,9 @@ defmodule Expi.Agent.Message do
 
   @doc """
   Creates a new tool result message.
-  
+
   ## Examples
-  
+
       iex> content = [%Expi.Types.TextContent{type: :text, text: "Result"}]
       iex> AgentMessage.tool_result("call_123", "search", content)
       %ToolResultMessage{...}

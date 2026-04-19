@@ -1,7 +1,7 @@
 defmodule Expi.HttpClient do
   @moduledoc """
   HTTP client wrapper with connection pooling and JSON handling.
-  
+
   Provides a simplified interface for HTTP requests with automatic
   JSON encoding/decoding and error handling.
   """
@@ -12,14 +12,16 @@ defmodule Expi.HttpClient do
   @doc """
   Performs a POST request with JSON body.
   """
-  @spec post(String.t(), map(), list(), list()) :: {:ok, HTTPoison.Response.t()} | {:error, atom()}
+  @spec post(String.t(), map(), list(), list()) ::
+          {:ok, HTTPoison.Response.t()} | {:error, atom()}
   def post(url, body, headers \\ [], options \\ []) do
     json_body = Jason.encode!(body)
     full_headers = [{"Content-Type", "application/json"} | headers]
     full_options = Keyword.merge(default_options(), options)
 
     case HTTPoison.post(url, json_body, full_headers, full_options) do
-      {:ok, %HTTPoison.Response{status_code: status} = response} when status >= 200 and status < 300 ->
+      {:ok, %HTTPoison.Response{status_code: status} = response}
+      when status >= 200 and status < 300 ->
         {:ok, response}
 
       {:ok, %HTTPoison.Response{status_code: status}} when status >= 400 ->
@@ -42,7 +44,8 @@ defmodule Expi.HttpClient do
     full_options = Keyword.merge(default_options(), options)
 
     case HTTPoison.get(url, full_headers, full_options) do
-      {:ok, %HTTPoison.Response{status_code: status} = response} when status >= 200 and status < 300 ->
+      {:ok, %HTTPoison.Response{status_code: status} = response}
+      when status >= 200 and status < 300 ->
         {:ok, response}
 
       {:ok, %HTTPoison.Response{status_code: status}} when status >= 400 ->

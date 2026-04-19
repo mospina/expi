@@ -1,7 +1,7 @@
 defmodule Expi.Auth do
   @moduledoc """
   Authentication management for API keys and provider connections.
-  
+
   Handles API key validation, header construction, and connection
   validation for Anthropic, Google, and Ollama providers.
   """
