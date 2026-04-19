@@ -96,6 +96,27 @@ messages = Agent.get_messages(agent)
 IO.puts("Conversation has #{length(messages)} messages")
 ```
 
+### Durable Sessions
+
+Use `Expi.Session` to persist and resume branch-aware conversations:
+
+```elixir
+alias Expi.Session
+
+{:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
+
+{:ok, %{session: session}} = Session.create_session(%{
+  model: model,
+  cwd: File.cwd!()
+})
+
+# Add a user message and run the conversation loop
+{:ok, session} = Expi.Session.AgentSession.prompt(session, "Summarize this repository")
+
+# Compact long context and persist compaction entry
+{:ok, session, _result} = Expi.Session.AgentSession.compact(session)
+```
+
 ## 📚 Core APIs
 
 ### Agent Module (Recommended)
@@ -694,6 +715,7 @@ end
 
 - [API Reference](https://hexdocs.pm/expi)
 - [Agent Guide](docs/agent.md) - Comprehensive agent usage and patterns
+- [Session Guide](docs/session.md) - Durable session lifecycle and persistence
 - [Integration Guide](docs/integration_guide.md)
 - [Provider Details](docs/providers.md)
 - [Streaming Guide](docs/streaming.md)
