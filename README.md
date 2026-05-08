@@ -107,15 +107,24 @@ alias Expi.Session
 
 {:ok, %{session: session}} = Session.create_session(%{
   model: model,
-  cwd: File.cwd!()
+  cwd: File.cwd!(),
+  enable_resources: true,
+  enable_extensions: false
 })
 
 # Add a user message and run the conversation loop
 {:ok, session} = Expi.Session.AgentSession.prompt(session, "Summarize this repository")
 
+# Discover available extension/prompt/skill commands
+commands = Expi.Session.AgentSession.get_commands(session)
+
 # Compact long context and persist compaction entry
 {:ok, session, _result} = Expi.Session.AgentSession.compact(session)
 ```
+
+Session can optionally load prompt templates + skills and run trusted extensions.
+See [`docs/session.md`](docs/session.md) and [`docs/demos.md`](docs/demos.md) for dispatch order,
+resource defaults, and migration guidance.
 
 ## 📚 Core APIs
 
