@@ -109,32 +109,44 @@ defmodule Expi.Agent.Turn do
     turn_start_event = AgentEvent.turn_start()
     emit_event_if_callback(turn_start_event, event_callback)
 
-    with {:ok, context} <- prepare_llm_context(current_agent_state, current_agent_options) do
-      # For now, return a simplified result since the full implementation 
-      # would involve streaming, tool processing, etc.
+    case run_turn_pipeline(turn_context, current_agent_options, event_callback, 0) do
+      {:ok, tools_context, final_state} ->
+        Logger.debug("Turn completed", %{
+          execution_time: System.system_time(:millisecond) - turn_context.turn_start_time,
+          tool_calls_found: length(tools_context.extracted_tools),
+          has_response: not is_nil(tools_context.streaming_message)
+        })
 
-      # Emit streaming done event if callback is provided
-      if event_callback do
-        try do
-          event_callback.(%{type: :done})
-        rescue
-          # Ignore callback errors
-          _ -> :ok
-        end
-      end
+        {:ok, final_state}
 
-      Logger.debug("Turn completed", %{
-        execution_time: System.system_time(:millisecond) - turn_context.turn_start_time
-      })
-
-      {:ok, current_agent_state}
-    else
       {:error, reason} = error ->
         Logger.error("Turn execution failed", %{
           reason: inspect(reason)
         })
 
         error
+    end
+  end
+
+  defp run_turn_pipeline(turn_context, agent_options, event_callback, retries) do
+    with {:ok, llm_context} <- prepare_llm_context(turn_context.agent_state, agent_options),
+         {:ok, streamed_context} <-
+           stream_assistant_response(
+             turn_context
+             |> Map.put(:llm_context, llm_context)
+             |> Map.put(:stream_fn, Map.get(agent_options, :stream_fn)),
+             event_callback
+           ),
+         {:ok, tools_context} <- process_response_tools(streamed_context, event_callback),
+         {:ok, final_state} <- finalize_turn_state(tools_context, event_callback) do
+      {:ok, tools_context, final_state}
+    else
+      {:error, reason} = error ->
+        if retries < 1 and transient_stream_error?(reason) do
+          run_turn_pipeline(turn_context, agent_options, event_callback, retries + 1)
+        else
+          error
+        end
     end
   end
 
@@ -156,7 +168,12 @@ defmodule Expi.Agent.Turn do
   @spec process_streaming_response(Expi.Types.Model.t(), Context.t(), function() | nil) ::
           {:ok, AssistantMessage.t()} | {:error, any()}
   def process_streaming_response(model, context, event_callback \\ nil) do
-    case AI.stream_simple(model, context) do
+    process_streaming_response_with_fn(model, context, &AI.stream_simple/2, event_callback)
+  end
+
+  defp process_streaming_response_with_fn(model, context, stream_fn, event_callback)
+       when is_function(stream_fn, 2) do
+    case stream_fn.(model, context) do
       {:ok, stream} ->
         # Initialize streaming state
         stream_state = %{
@@ -175,9 +192,21 @@ defmodule Expi.Agent.Turn do
 
         {:ok, final_state.partial_message}
 
-      {:error, reason} = error ->
+      {:error, reason} ->
         Logger.error("Failed to start streaming", %{reason: inspect(reason)})
-        error
+
+        fallback_message = %AssistantMessage{
+          role: :assistant,
+          content: [%{type: :text, text: "[error] #{inspect(reason)}"}],
+          api: model.api,
+          provider: model.provider,
+          model: model.id,
+          stop_reason: :error,
+          error_message: inspect(reason),
+          timestamp: System.system_time(:millisecond)
+        }
+
+        {:ok, fallback_message}
     end
   end
 
@@ -302,8 +331,9 @@ defmodule Expi.Agent.Turn do
   defp stream_assistant_response(turn_context, event_callback) do
     model = turn_context.agent_state.model
     context = turn_context.llm_context
+    stream_fn = Map.get(turn_context, :stream_fn) || Map.get(turn_context.agent_state, :stream_fn)
 
-    case process_streaming_response(model, context, event_callback) do
+    case stream_with_optional_fn(model, context, stream_fn, event_callback) do
       {:ok, assistant_message} ->
         updated_context = %{turn_context | streaming_message: assistant_message}
         {:ok, updated_context}
@@ -354,30 +384,24 @@ defmodule Expi.Agent.Turn do
     assistant_message = turn_context.streaming_message
     tool_calls = turn_context.extracted_tools
 
-    # Add assistant message to state
-    updated_state =
-      if assistant_message do
-        State.add_message(agent_state, assistant_message)
-      else
-        agent_state
-      end
+    if is_nil(assistant_message) or (assistant_message.content == [] and tool_calls == []) do
+      {:error, :empty_turn_result}
+    else
+      updated_state = State.add_message(agent_state, assistant_message)
 
-    # Queue tool calls for execution
-    final_state =
-      Enum.reduce(tool_calls, updated_state, fn tool_call, state ->
-        State.add_pending_tool_call(state, tool_call.id)
-      end)
+      final_state =
+        Enum.reduce(tool_calls, updated_state, fn tool_call, state ->
+          State.add_pending_tool_call(state, tool_call.id)
+        end)
 
-    # Emit message events
-    if assistant_message do
       message_start_event = %AgentEvent{type: :message_start, message: assistant_message}
       emit_event_if_callback(message_start_event, event_callback)
 
       message_end_event = %AgentEvent{type: :message_end, message: assistant_message}
       emit_event_if_callback(message_end_event, event_callback)
-    end
 
-    {:ok, final_state}
+      {:ok, final_state}
+    end
   end
 
   @spec process_stream_event(map(), stream_state(), function() | nil) :: stream_state()
@@ -385,11 +409,23 @@ defmodule Expi.Agent.Turn do
     case event.type do
       :start ->
         # Stream starting
+        # Provider events may include metadata in either `event.partial` or `event.message`,
+        # and some providers omit both.
+        source_message = event.partial || event.message
+
         updated_message = %{
           stream_state.partial_message
-          | api: event.partial.api,
-            provider: event.partial.provider,
-            model: event.partial.model,
+          | api: if(is_map(source_message), do: source_message.api, else: stream_state.partial_message.api),
+            provider:
+              if(is_map(source_message),
+                do: source_message.provider,
+                else: stream_state.partial_message.provider
+              ),
+            model:
+              if(is_map(source_message),
+                do: source_message.model,
+                else: stream_state.partial_message.model
+              ),
             timestamp: System.system_time(:millisecond)
         }
 
@@ -469,23 +505,32 @@ defmodule Expi.Agent.Turn do
 
       :toolcall_end ->
         # Tool call completed
-        tool_call_content = %{
-          type: :tool_call,
-          id: event.tool_call.id,
-          name: event.tool_call.name,
-          arguments: event.tool_call.arguments
-        }
+        if is_map(event.tool_call) do
+          tool_call_content = %{
+            type: :tool_call,
+            id: event.tool_call.id,
+            name: event.tool_call.name,
+            arguments: event.tool_call.arguments
+          }
 
-        updated_content = [tool_call_content | stream_state.partial_message.content]
-        updated_message = %{stream_state.partial_message | content: updated_content}
+          updated_content = [tool_call_content | stream_state.partial_message.content]
+          updated_message = %{stream_state.partial_message | content: updated_content}
 
-        %{stream_state | partial_message: updated_message}
+          %{stream_state | partial_message: updated_message}
+        else
+          Logger.warning("toolcall_end event missing tool_call payload")
+          stream_state
+        end
 
       :done ->
         # Stream completed
         final_message = %{
           stream_state.partial_message
-          | usage: event.message.usage,
+          | usage:
+              if(is_map(event.message),
+                do: event.message.usage,
+                else: stream_state.partial_message.usage
+              ),
             stop_reason: event.reason,
             timestamp: System.system_time(:millisecond)
         }
@@ -528,6 +573,22 @@ defmodule Expi.Agent.Turn do
   @spec generate_tool_call_id() :: String.t()
   defp generate_tool_call_id() do
     "call_" <> (:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower))
+  end
+
+  defp stream_with_optional_fn(model, context, nil, event_callback) do
+    process_streaming_response(model, context, event_callback)
+  end
+
+  defp stream_with_optional_fn(model, context, stream_fn, event_callback) when is_function(stream_fn, 2) do
+    process_streaming_response_with_fn(model, context, stream_fn, event_callback)
+  end
+
+  defp stream_with_optional_fn(model, context, _stream_fn, event_callback) do
+    process_streaming_response(model, context, event_callback)
+  end
+
+  defp transient_stream_error?(reason) do
+    reason in [:timeout, :rate_limited, :connection_error, :temporary_failure]
   end
 
   @spec emit_event_if_callback(AgentEvent.t(), function() | nil) :: :ok

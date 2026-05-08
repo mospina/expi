@@ -14,7 +14,8 @@
 # Test with wscat:
 #   npx wscat -c ws://localhost:8080/ws
 #   > {"type":"create_session","provider":"anthropic","model_id":"claude-sonnet-3-6","in_memory":true}
-#   > {"type":"prompt","text":"Draft release notes","run_conversation":false}
+#   > {"type":"prompt","text":"Draft release notes","run_conversation":true}
+#   > {"type":"messages"}
 #   > {"type":"compact","instructions":"Keep only key actions"}
 #   > {"type":"stats"}
 
@@ -23,6 +24,24 @@ Mix.install([
   {:jason, "~> 1.4"},
   {:cowboy, "~> 2.12"}
 ])
+
+defmodule SessionWsServerDemo.Extension do
+  @behaviour Expi.Session.Extension
+
+  def register(_ctx) do
+    %{
+      commands: [
+        %{
+          name: "echo",
+          description: "Echo command text into session",
+          handler: fn args, session, _ctx ->
+            Expi.Session.AgentSession.prompt(session, "[echo] " <> args, %{run_conversation: false, expand_resources: false})
+          end
+        }
+      ]
+    }
+  end
+end
 
 defmodule SessionWsServerDemo.Handler do
   @behaviour :cowboy_websocket
@@ -70,7 +89,15 @@ defmodule SessionWsServerDemo.Handler do
     model_id = Map.get(data, "model_id", "claude-sonnet-3-6")
     in_memory = Map.get(data, "in_memory", true)
 
-    case Session.create_session(%{provider: provider, model_id: model_id, in_memory: in_memory}) do
+    case Session.create_session(%{
+           provider: provider,
+           model_id: model_id,
+           in_memory: in_memory,
+           enable_resources: true,
+           enable_extensions: true,
+           trusted_extensions: [SessionWsServerDemo.Extension],
+           extensions: [SessionWsServerDemo.Extension]
+         }) do
       {:ok, %{session: session}} ->
         reply = %{
           ok: true,
@@ -91,15 +118,19 @@ defmodule SessionWsServerDemo.Handler do
   end
 
   defp route(%{"type" => "prompt", "text" => text} = data, %{session: session} = state) do
-    run_conversation = Map.get(data, "run_conversation", false)
+    run_conversation = Map.get(data, "run_conversation", true)
 
     case AgentSession.prompt(session, text, %{run_conversation: run_conversation}) do
       {:ok, updated} ->
+        messages = AgentSession.messages(updated)
+
         reply = %{
           ok: true,
           type: "prompt_accepted",
-          message_count: length(AgentSession.messages(updated)),
-          run_conversation: run_conversation
+          message_count: length(messages),
+          run_conversation: run_conversation,
+          mode: "ack_plus_snapshot",
+          assistant_text: last_assistant_text(messages)
         }
 
         {:ok, reply, %{state | session: updated}}
@@ -125,10 +156,75 @@ defmodule SessionWsServerDemo.Handler do
     end
   end
 
+  defp route(%{"type" => "reload"} = data, %{session: nil} = state) do
+    {:error, %{ok: false, error: "session_not_initialized"}, state}
+  end
+
+  defp route(%{"type" => "reload"} = data, %{session: session} = state) do
+    session =
+      AgentSession.reload_resources(session, %{
+        prompt_paths: Map.get(data, "prompt_paths", []),
+        skill_paths: Map.get(data, "skill_paths", [])
+      })
+
+    {:ok, %{ok: true, type: "reloaded"}, %{state | session: session}}
+  end
+
+  defp route(%{"type" => "get_commands"}, %{session: nil} = state) do
+    {:error, %{ok: false, error: "session_not_initialized"}, state}
+  end
+
+  defp route(%{"type" => "get_commands"}, %{session: session} = state) do
+    commands =
+      AgentSession.get_commands(session)
+      |> Enum.map(fn cmd ->
+        %{
+          name: cmd.name,
+          source: cmd.source,
+          description: cmd.description,
+          location: cmd.location,
+          path: cmd.path,
+          invokable: cmd.invokable
+        }
+      end)
+
+    {:ok, %{ok: true, type: "commands", commands: commands, version: 1}, state}
+  end
+
+  defp route(%{"type" => "diagnostics"}, %{session: nil} = state) do
+    {:error, %{ok: false, error: "session_not_initialized"}, state}
+  end
+
+  defp route(%{"type" => "diagnostics"}, %{session: session} = state) do
+    diagnostics =
+      AgentSession.get_diagnostics(session)
+      |> Enum.map(fn d -> %{severity: d.severity, message: d.message, source: d.source, path: d.path} end)
+
+    {:ok, %{ok: true, type: "diagnostics", diagnostics: diagnostics}, state}
+  end
+
+  defp route(%{"type" => "messages"}, %{session: nil} = state) do
+    {:error, %{ok: false, error: "session_not_initialized"}, state}
+  end
+
+  defp route(%{"type" => "messages"}, %{session: session} = state) do
+    messages =
+      AgentSession.messages(session)
+      |> Enum.with_index()
+      |> Enum.map(fn {m, idx} ->
+        %{
+          index: idx,
+          role: Map.get(m, :role),
+          text: message_text(m)
+        }
+      end)
+
+    {:ok, %{ok: true, type: "messages", count: length(messages), messages: messages}, state}
+  end
+
   defp route(%{"type" => "stats"}, %{session: nil} = state) do
     {:ok, %{ok: true, type: "stats", initialized: false}, state}
   end
-
   defp route(%{"type" => "stats"}, %{session: session} = state) do
     manager = AgentSession.session_manager(session)
 
@@ -149,6 +245,43 @@ defmodule SessionWsServerDemo.Handler do
 
   defp route(_unknown, state) do
     {:error, %{ok: false, error: "unknown_command"}, state}
+  end
+
+  defp last_assistant_text(messages) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find_value(fn m ->
+      if Map.get(m, :role) == :assistant or Map.get(m, :role) == "assistant" do
+        message_text(m)
+      else
+        nil
+      end
+    end)
+  end
+
+  defp message_text(message) do
+    content = Map.get(message, :content)
+
+    cond do
+      is_binary(content) ->
+        content
+
+      is_list(content) ->
+        content
+        |> Enum.map(fn part ->
+          cond do
+            is_binary(part) -> part
+            is_map(part) and is_binary(Map.get(part, :text)) -> Map.get(part, :text)
+            is_map(part) and is_binary(Map.get(part, "text")) -> Map.get(part, "text")
+            true -> nil
+          end
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.join("\n")
+
+      true ->
+        nil
+    end
   end
 end
 
@@ -183,7 +316,7 @@ defmodule SessionWsServerDemo do
 
     IO.puts("🛰️  Session WebSocket demo server running on ws://localhost:#{port}/ws")
     IO.puts("🩺 Health endpoint available at http://localhost:#{port}/health")
-    IO.puts("Send JSON commands: create_session, prompt, compact, stats")
+    IO.puts("Send JSON commands: create_session, prompt, messages, compact, reload, get_commands, diagnostics, stats")
 
     Process.sleep(:infinity)
   end

@@ -9,7 +9,10 @@ defmodule Expi.Session do
   alias Expi.Agent
   alias Expi.Agent.State, as: AgentStateOps
   alias Expi.Session.AgentSession
+  alias Expi.Session.ExtensionRunner
+  alias Expi.Session.FeatureFlags
   alias Expi.Session.Manager
+  alias Expi.Session.ResourceLoader
   alias Expi.Types.Model
 
   @type create_session_result :: %{
@@ -35,18 +38,47 @@ defmodule Expi.Session do
   - `:continue_recent` - if true, resumes recent session in cwd/session_dir
   - `:open_session_path` - if set, opens an explicit session file
   - `:in_memory` - if true, disables file persistence
+  - `:enable_resources` - enable resource loader features (prompts/skills)
+  - `:enable_extensions` - enable extension runtime
+  - `:extensions` - list of extension modules implementing `Expi.Session.Extension`
+  - `:trusted_extensions` - optional allow-list of extension modules
+  - `:prompt_paths` - additional prompt template paths
+  - `:skill_paths` - additional skill paths
   """
   @spec create_session(map()) :: {:ok, create_session_result()} | {:error, term()}
   def create_session(options \\ %{}) do
+    feature_flags = FeatureFlags.from_options(options)
+
     with {:ok, model, model_fallback_message} <- resolve_model(options),
          {:ok, manager} <- resolve_manager(options),
          {:ok, agent} <- create_agent(model, options),
          {:ok, manager, agent} <- restore_or_initialize_session(manager, agent, options) do
+      resource_loader =
+        ResourceLoader.new(%{
+          cwd: Map.get(options, :cwd, File.cwd!()),
+          include_defaults: feature_flags.enable_resources,
+          prompt_paths: Map.get(options, :prompt_paths, []),
+          skill_paths: Map.get(options, :skill_paths, [])
+        })
+
+      extension_runner =
+        ExtensionRunner.new(%{
+          enabled: feature_flags.enable_extensions,
+          extensions: Map.get(options, :extensions, []),
+          trusted_modules: Map.get(options, :trusted_extensions, []),
+          context: %{cwd: Map.get(options, :cwd, File.cwd!())}
+        })
+
+      agent = extension_runner |> ExtensionRunner.apply_tools(agent)
+
       session = %AgentSession{
         agent: agent,
         session_manager: manager,
         scoped_models: Map.get(options, :scoped_models, []),
-        default_run_options: Map.get(options, :default_run_options, %{})
+        default_run_options: Map.get(options, :default_run_options, %{}),
+        resource_loader: resource_loader,
+        extension_runner: extension_runner,
+        feature_flags: feature_flags
       }
 
       {:ok, %{session: session, model_fallback_message: model_fallback_message}}

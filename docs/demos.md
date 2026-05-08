@@ -86,13 +86,14 @@ elixir demos/real_streaming_demo.exs
 
 ---
 
-### 6. `session_lifecycle_demo.exs` - Session Module Walkthrough ✅ NEW
-**Intermediate** demo focused on the new Session implementation.
+### 6. `session_lifecycle_demo.exs` - Session Extensibility Walkthrough ✅ NEW
+**Intermediate** demo focused on Session runtime + extensibility layers.
 
-- `Expi.Session.create_session/1`
-- In-memory append-only history
-- Session compaction
-- Branch summaries and context rebuild
+- `Expi.Session.create_session/1` with resource/extension feature flags
+- Prompt template loading and `/template ...` expansion
+- Skill loading and `/skill:name ...` expansion
+- Extension command registration (`/echo`) and input transformation hooks
+- Session compaction and diagnostics surface
 
 _No provider call required by default (`run_conversation: false`)._
 
@@ -106,7 +107,8 @@ elixir demos/session_lifecycle_demo.exs
 **Advanced** lightweight WebSocket server wrapping Session runtime.
 
 - Per-socket session state
-- JSON commands over WS (`create_session`, `prompt`, `compact`, `stats`)
+- JSON commands over WS (`create_session`, `prompt`, `compact`, `reload`, `get_commands`, `diagnostics`, `stats`)
+- Command inventory response with source metadata (`extension`/`prompt`/`skill`)
 - HTTP health endpoint at `/health` for quick orchestration checks
 - Useful as a minimal integration template
 
@@ -132,6 +134,8 @@ Example commands:
 {"type":"create_session","provider":"anthropic","model_id":"claude-sonnet-3-6","in_memory":true}
 {"type":"prompt","text":"Draft release notes","run_conversation":false}
 {"type":"compact","instructions":"Keep key actions"}
+{"type":"get_commands"}
+{"type":"diagnostics"}
 {"type":"stats"}
 ```
 
@@ -147,6 +151,7 @@ Example commands:
 
 ## 🧭 Notes
 
-- Session demos are designed to highlight the new session lifecycle/persistence capabilities.
+- Session demos are designed to highlight lifecycle + extensibility capabilities.
 - `session_ws_server_demo.exs` is intentionally minimal and suitable for local experimentation.
 - If you enable `run_conversation: true`, ensure provider credentials are set.
+- See `docs/session.md` for dispatch order, discovery defaults, and migration guidance.

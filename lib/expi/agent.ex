@@ -333,9 +333,10 @@ defmodule Expi.Agent do
   def add_steering(agent_state, content) when is_binary(content) do
     steering_message = Message.user(content)
 
-    # In a full implementation, we would add this to a steering queue
-    # For now, we'll add it as a regular message
-    updated_state = State.add_message(agent_state, steering_message)
+    updated_state =
+      agent_state
+      |> State.enqueue_steering(steering_message)
+      |> State.add_message(steering_message)
 
     Logger.debug("Steering message added", %{
       content_preview: String.slice(content, 0, 50),
@@ -367,9 +368,10 @@ defmodule Expi.Agent do
   def add_follow_up(agent_state, content) when is_binary(content) do
     follow_up_message = Message.user(content)
 
-    # In a full implementation, we would add this to a follow-up queue
-    # For now, we'll add it as a regular message
-    updated_state = State.add_message(agent_state, follow_up_message)
+    updated_state =
+      agent_state
+      |> State.enqueue_follow_up(follow_up_message)
+      |> State.add_message(follow_up_message)
 
     Logger.debug("Follow-up message added", %{
       content_preview: String.slice(content, 0, 50)

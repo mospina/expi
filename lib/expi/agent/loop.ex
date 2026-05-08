@@ -132,7 +132,10 @@ defmodule Expi.Agent.Loop do
     # Initialize loop state
     loop_state = %{
       agent_state: initial_state,
-      message_queue: %{steering: [], follow_up: []},
+      message_queue: %{
+        steering: Map.get(initial_state, :steering_queue, []),
+        follow_up: Map.get(initial_state, :follow_up_queue, [])
+      },
       current_turn: 0,
       loop_start_time: System.system_time(:millisecond),
       options: agent_options
@@ -220,7 +223,10 @@ defmodule Expi.Agent.Loop do
     # Create minimal loop state for single turn
     loop_state = %{
       agent_state: agent_state,
-      message_queue: %{steering: [], follow_up: []},
+      message_queue: %{
+        steering: Map.get(agent_state, :steering_queue, []),
+        follow_up: Map.get(agent_state, :follow_up_queue, [])
+      },
       current_turn: 1,
       loop_start_time: System.system_time(:millisecond),
       options: agent_options
@@ -246,14 +252,11 @@ defmodule Expi.Agent.Loop do
   """
   @spec add_steering_message(AgentState.t(), Expi.Agent.Message.t()) :: AgentState.t()
   def add_steering_message(agent_state, message) do
-    # In a full implementation, this would interact with a message queue
-    # For now, we'll add it to a hypothetical steering queue in state
     Logger.debug("Steering message added", %{
       message_type: Expi.Agent.Message.message_type(message)
     })
 
-    # This would be implemented as part of a broader queue management system
-    agent_state
+    State.enqueue_steering(agent_state, message)
   end
 
   @doc """
@@ -270,12 +273,11 @@ defmodule Expi.Agent.Loop do
   """
   @spec add_follow_up_message(AgentState.t(), Expi.Agent.Message.t()) :: AgentState.t()
   def add_follow_up_message(agent_state, message) do
-    # Similar to steering, this would interact with message queue management
     Logger.debug("Follow-up message added", %{
       message_type: Expi.Agent.Message.message_type(message)
     })
 
-    agent_state
+    State.enqueue_follow_up(agent_state, message)
   end
 
   @doc """
@@ -298,8 +300,9 @@ defmodule Expi.Agent.Loop do
     has_steering = length(loop_state.message_queue.steering) > 0
     has_follow_up = length(loop_state.message_queue.follow_up) > 0
     is_streaming = State.is_streaming?(loop_state.agent_state)
+    needs_assistant_turn = last_message_requires_response?(loop_state.agent_state)
 
-    has_pending_tools or has_steering or has_follow_up or is_streaming
+    has_pending_tools or has_steering or has_follow_up or is_streaming or needs_assistant_turn
   end
 
   @doc """
@@ -491,19 +494,27 @@ defmodule Expi.Agent.Loop do
 
   @spec process_follow_up_messages(loop_state()) :: {loop_state(), boolean()}
   defp process_follow_up_messages(loop_state) do
+    mode = Map.get(loop_state.options, :follow_up_mode, :one_at_a_time)
+
     case loop_state.message_queue.follow_up do
       [] ->
-        # No follow-up messages
         {loop_state, false}
 
       follow_up_messages ->
+        {batch, remaining} = take_by_mode(follow_up_messages, mode)
+
         Logger.debug("Processing follow-up messages", %{
-          count: length(follow_up_messages)
+          count: length(batch),
+          remaining: length(remaining),
+          mode: mode
         })
 
-        # Add follow-up messages to agent state and clear queue
-        updated_agent_state = State.add_messages(loop_state.agent_state, follow_up_messages)
-        updated_queue = %{loop_state.message_queue | follow_up: []}
+        updated_agent_state =
+          loop_state.agent_state
+          |> State.add_messages(batch)
+          |> Map.put(:follow_up_queue, remaining)
+
+        updated_queue = %{loop_state.message_queue | follow_up: remaining}
 
         updated_loop_state = %{
           loop_state
@@ -511,27 +522,47 @@ defmodule Expi.Agent.Loop do
             message_queue: updated_queue
         }
 
-        # More processing needed
         {updated_loop_state, true}
+    end
+  end
+  defp last_message_requires_response?(agent_state) do
+    case State.get_messages(agent_state) do
+      [] ->
+        false
+
+      messages ->
+        case List.last(messages) do
+          %{role: :user} -> true
+          %{role: :tool_result} -> true
+          _ -> false
+        end
     end
   end
 
   @spec process_steering_messages(loop_state(), function() | nil) ::
           {:ok, loop_state()} | {:error, any()}
   defp process_steering_messages(loop_state, _event_callback) do
+    mode = Map.get(loop_state.options, :steering_mode, :all)
+
     case loop_state.message_queue.steering do
       [] ->
-        # No steering messages
         {:ok, loop_state}
 
       steering_messages ->
+        {batch, remaining} = take_by_mode(steering_messages, mode)
+
         Logger.debug("Processing steering messages", %{
-          count: length(steering_messages)
+          count: length(batch),
+          remaining: length(remaining),
+          mode: mode
         })
 
-        # Add steering messages to agent state and clear queue
-        updated_agent_state = State.add_messages(loop_state.agent_state, steering_messages)
-        updated_queue = %{loop_state.message_queue | steering: []}
+        updated_agent_state =
+          loop_state.agent_state
+          |> State.add_messages(batch)
+          |> Map.put(:steering_queue, remaining)
+
+        updated_queue = %{loop_state.message_queue | steering: remaining}
 
         updated_loop_state = %{
           loop_state
@@ -542,7 +573,6 @@ defmodule Expi.Agent.Loop do
         {:ok, updated_loop_state}
     end
   end
-
   @spec execute_pending_tools(loop_state(), function() | nil) ::
           {:ok, loop_state()} | {:error, any()}
   defp execute_pending_tools(loop_state, event_callback) do
@@ -634,6 +664,15 @@ defmodule Expi.Agent.Loop do
       }
     end)
   end
+
+  defp take_by_mode(messages, :one_at_a_time) do
+    case messages do
+      [] -> {[], []}
+      [first | rest] -> {[first], rest}
+    end
+  end
+
+  defp take_by_mode(messages, _mode), do: {messages, []}
 
   @spec emit_event_if_callback(AgentEvent.t(), function() | nil) :: :ok
   defp emit_event_if_callback(_event, nil), do: :ok

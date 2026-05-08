@@ -68,6 +68,8 @@ defmodule Expi.Agent.State do
       is_streaming: false,
       stream_message: nil,
       pending_tool_calls: MapSet.new(),
+      steering_queue: [],
+      follow_up_queue: [],
       error: nil,
       created_at: System.system_time(:millisecond),
       max_context_length: nil,
@@ -133,6 +135,8 @@ defmodule Expi.Agent.State do
         is_streaming: false,
         stream_message: nil,
         pending_tool_calls: MapSet.new(),
+        steering_queue: [],
+        follow_up_queue: [],
         error: nil
     }
   end
@@ -435,6 +439,39 @@ defmodule Expi.Agent.State do
   @spec get_pending_tool_calls(AgentState.t()) :: MapSet.t(String.t())
   def get_pending_tool_calls(%AgentState{pending_tool_calls: pending}), do: pending
 
+  @spec enqueue_steering(AgentState.t(), Message.t()) :: AgentState.t()
+  def enqueue_steering(%AgentState{steering_queue: queue} = state, message) do
+    %AgentState{state | steering_queue: queue ++ [message]}
+  end
+
+  @spec enqueue_follow_up(AgentState.t(), Message.t()) :: AgentState.t()
+  def enqueue_follow_up(%AgentState{follow_up_queue: queue} = state, message) do
+    %AgentState{state | follow_up_queue: queue ++ [message]}
+  end
+
+  @spec drain_steering(AgentState.t(), :all | :one_at_a_time) :: {[Message.t()], AgentState.t()}
+  def drain_steering(%AgentState{steering_queue: queue} = state, mode \\ :all) do
+    case {mode, queue} do
+      {_, []} -> {[], state}
+      {:one_at_a_time, [first | rest]} -> {[first], %AgentState{state | steering_queue: rest}}
+      _ -> {queue, %AgentState{state | steering_queue: []}}
+    end
+  end
+
+  @spec drain_follow_up(AgentState.t(), :all | :one_at_a_time) :: {[Message.t()], AgentState.t()}
+  def drain_follow_up(%AgentState{follow_up_queue: queue} = state, mode \\ :all) do
+    case {mode, queue} do
+      {_, []} -> {[], state}
+      {:one_at_a_time, [first | rest]} -> {[first], %AgentState{state | follow_up_queue: rest}}
+      _ -> {queue, %AgentState{state | follow_up_queue: []}}
+    end
+  end
+
+  @spec has_queued_messages?(AgentState.t()) :: boolean()
+  def has_queued_messages?(%AgentState{} = state) do
+    state.steering_queue != [] or state.follow_up_queue != []
+  end
+
   # Configuration Management
 
   @doc """
@@ -563,6 +600,8 @@ defmodule Expi.Agent.State do
         is_streaming: updates.is_streaming,
         stream_message: updates.stream_message,
         pending_tool_calls: updates.pending_tool_calls,
+        steering_queue: updates.steering_queue,
+        follow_up_queue: updates.follow_up_queue,
         error: updates.error
     }
   end
