@@ -93,6 +93,8 @@ defmodule Expi.Agent.Callbacks do
           on_error: :ignore | :log | :raise | function()
         ]
 
+  @stats_table :expi_callback_stats
+
   @doc """
   Creates a new callback registry.
 
@@ -165,6 +167,8 @@ defmodule Expi.Agent.Callbacks do
   @spec register_callback(callback_registry(), map()) ::
           {:ok, callback_registry(), callback_id()} | {:error, any()}
   def register_callback(registry, callback_spec) do
+    ensure_stats_table()
+
     case validate_callback(callback_spec) do
       :ok ->
         callback_id = Map.get(callback_spec, :id, generate_callback_id())
@@ -186,6 +190,8 @@ defmodule Expi.Agent.Callbacks do
           registry
           |> put_in([:callbacks, callback_id], full_callback)
           |> put_in([:stats, callback_id], stats)
+
+        :ets.insert(@stats_table, {callback_id, stats})
 
         Logger.debug("Callback registered", %{
           callback_id: callback_id,
@@ -218,6 +224,8 @@ defmodule Expi.Agent.Callbacks do
           registry
           |> update_in([:callbacks], &Map.delete(&1, callback_id))
           |> update_in([:stats], &Map.delete(&1, callback_id))
+
+        :ets.delete(@stats_table, callback_id)
 
         Logger.debug("Callback unregistered", %{callback_id: callback_id})
 
@@ -296,8 +304,8 @@ defmodule Expi.Agent.Callbacks do
       try do
         result = do_invoke_callback(callback, event)
         execution_time = System.monotonic_time(:millisecond) - start_time
+        update_stats(get_callback_id(callback), execution_time, nil)
 
-        # Update stats would happen here in a full implementation
         Logger.debug("Callback invoked successfully", %{
           callback_id: get_callback_id(callback),
           event_type: event.type,
@@ -309,6 +317,8 @@ defmodule Expi.Agent.Callbacks do
         error ->
           execution_time = System.monotonic_time(:millisecond) - start_time
           error_message = Exception.message(error)
+
+          update_stats(get_callback_id(callback), execution_time, error_message)
 
           Logger.error("Callback invocation failed", %{
             callback_id: get_callback_id(callback),
@@ -454,9 +464,15 @@ defmodule Expi.Agent.Callbacks do
   @spec get_callback_stats(callback_registry(), callback_id()) ::
           {:ok, callback_stats()} | {:error, :not_found}
   def get_callback_stats(registry, callback_id) do
-    case Map.get(registry.stats, callback_id) do
-      nil -> {:error, :not_found}
-      stats -> {:ok, stats}
+    ensure_stats_table()
+
+    case :ets.lookup(@stats_table, callback_id) do
+      [{^callback_id, stats}] -> {:ok, stats}
+      [] ->
+        case Map.get(registry.stats, callback_id) do
+          nil -> {:error, :not_found}
+          stats -> {:ok, stats}
+        end
     end
   end
 
@@ -805,5 +821,49 @@ defmodule Expi.Agent.Callbacks do
     |> Base.url_encode64(padding: false)
     |> String.slice(0, 12)
     |> String.downcase()
+  end
+
+  defp ensure_stats_table() do
+    case :ets.whereis(@stats_table) do
+      :undefined -> :ets.new(@stats_table, [:named_table, :public, :set])
+      _tid -> :ok
+    end
+
+    :ok
+  end
+
+  defp update_stats(callback_id, execution_time, error_message) do
+    ensure_stats_table()
+
+    current =
+      case :ets.lookup(@stats_table, callback_id) do
+        [{^callback_id, stats}] -> stats
+        [] ->
+          %{
+            invocation_count: 0,
+            total_execution_time: 0,
+            average_execution_time: 0.0,
+            last_invoked: nil,
+            error_count: 0,
+            last_error: nil
+          }
+      end
+
+    invocation_count = current.invocation_count + 1
+    total_execution_time = current.total_execution_time + execution_time
+    error_count = if error_message, do: current.error_count + 1, else: current.error_count
+
+    updated = %{
+      current
+      | invocation_count: invocation_count,
+        total_execution_time: total_execution_time,
+        average_execution_time: total_execution_time / invocation_count,
+        last_invoked: System.system_time(:millisecond),
+        error_count: error_count,
+        last_error: error_message || current.last_error
+    }
+
+    :ets.insert(@stats_table, {callback_id, updated})
+    :ok
   end
 end

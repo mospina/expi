@@ -55,6 +55,7 @@ defmodule Expi.Agent.ToolExecutor do
 
   @default_timeout 30_000
   @default_max_concurrent 5
+  @execution_table :expi_tool_executions
 
   @doc """
   Executes multiple tools concurrently with coordinated result handling.
@@ -114,6 +115,7 @@ defmodule Expi.Agent.ToolExecutor do
   @spec execute_tools_concurrent([ToolCall.t()], [AgentTool.t()], execution_options()) ::
           execution_result()
   def execute_tools_concurrent(tool_calls, available_tools, options \\ []) do
+    ensure_execution_table()
     timeout = Keyword.get(options, :timeout, @default_timeout)
     max_concurrent = Keyword.get(options, :max_concurrent, @default_max_concurrent)
     strategy = Keyword.get(options, :strategy, :concurrent)
@@ -128,6 +130,8 @@ defmodule Expi.Agent.ToolExecutor do
       strategy: strategy,
       timeout: timeout
     })
+
+    :ets.insert(@execution_table, {execution_id, %{status: :running, started_at: System.system_time(:millisecond), tool_count: length(tool_calls)}})
 
     case strategy do
       :concurrent ->
@@ -320,12 +324,22 @@ defmodule Expi.Agent.ToolExecutor do
       Process.sleep(5000)
       ToolExecutor.cancel_execution(execution_ref)
   """
-  @spec cancel_execution(execution_id()) :: :ok | {:error, :not_found}
+  @spec cancel_execution(execution_id()) :: :ok | {:error, :not_found | :already_completed}
   def cancel_execution(execution_id) do
-    # In a real implementation, this would interact with an execution registry
-    # For now, we'll just log the cancellation request
-    Logger.info("Cancellation requested", %{execution_id: execution_id})
-    :ok
+    ensure_execution_table()
+
+    case :ets.lookup(@execution_table, execution_id) do
+      [] ->
+        {:error, :not_found}
+
+      [{^execution_id, %{status: status} = execution}] when status in [:completed, :failed, :cancelled] ->
+        {:error, :already_completed}
+
+      [{^execution_id, execution}] ->
+        :ets.insert(@execution_table, {execution_id, Map.put(execution, :status, :cancelled)})
+        Logger.info("Cancellation requested", %{execution_id: execution_id})
+        :ok
+    end
   end
 
   @doc """
@@ -340,17 +354,23 @@ defmodule Expi.Agent.ToolExecutor do
         ToolExecutor.monitor_execution(execution_id, callback)
       end)
   """
-  @spec monitor_execution(execution_id(), function() | nil) :: :ok
+  @spec monitor_execution(execution_id(), function() | nil) :: :ok | {:error, :not_found}
   def monitor_execution(execution_id, status_callback \\ nil) do
-    # Implementation would track execution progress
-    # For now, just log the monitoring setup
-    Logger.debug("Monitoring execution", %{execution_id: execution_id})
+    ensure_execution_table()
 
-    if status_callback do
-      status_callback.({:started, execution_id})
+    case :ets.lookup(@execution_table, execution_id) do
+      [] ->
+        {:error, :not_found}
+
+      [{^execution_id, execution}] ->
+        Logger.debug("Monitoring execution", %{execution_id: execution_id, status: execution.status})
+
+        if status_callback do
+          status_callback.({execution.status, execution_id})
+        end
+
+        :ok
     end
-
-    :ok
   end
 
   @doc """
@@ -361,13 +381,12 @@ defmodule Expi.Agent.ToolExecutor do
   """
   @spec stream_tool_updates(execution_id(), [tool_execution()], AgentToolCallback.t()) :: :ok
   def stream_tool_updates(execution_id, executions, _callback) do
-    # Implementation would coordinate streaming updates
     Logger.debug("Streaming updates", %{
       execution_id: execution_id,
       active_tools: length(executions)
     })
 
-    :ok
+    {:error, :unsupported}
   end
 
   @doc """
@@ -378,12 +397,11 @@ defmodule Expi.Agent.ToolExecutor do
   """
   @spec handle_partial_results([AgentToolResult.t()], execution_options()) :: :ok
   def handle_partial_results(partial_results, _options \\ []) do
-    # Implementation would route partial results
     Logger.debug("Handling partial results", %{
       result_count: length(partial_results)
     })
 
-    :ok
+    {:error, :unsupported}
   end
 
   @doc """
@@ -579,6 +597,8 @@ defmodule Expi.Agent.ToolExecutor do
         on_complete.(results)
       end
 
+      :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
+
       Logger.debug("Concurrent execution completed", %{
         execution_id: execution_id,
         tool_count: length(results),
@@ -632,6 +652,8 @@ defmodule Expi.Agent.ToolExecutor do
       if on_complete do
         on_complete.(results)
       end
+
+      :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
 
       Logger.debug("Sequential execution completed", %{
         execution_id: execution_id,
@@ -721,5 +743,14 @@ defmodule Expi.Agent.ToolExecutor do
     :crypto.strong_rand_bytes(8)
     |> Base.url_encode64(padding: false)
     |> String.slice(0, 12)
+  end
+
+  defp ensure_execution_table() do
+    case :ets.whereis(@execution_table) do
+      :undefined -> :ets.new(@execution_table, [:named_table, :public, :set])
+      _tid -> :ok
+    end
+
+    :ok
   end
 end

@@ -541,12 +541,17 @@ defmodule Expi.Agent.Context do
   defp maybe_compress_content(messages, false), do: {:ok, messages}
 
   defp maybe_compress_content(messages, true) do
-    # Simple content compression - remove extra whitespace
     compressed =
       Enum.map(messages, fn message ->
-        # This would be more sophisticated in a real implementation
-        # Placeholder for now
-        message
+        content = Message.content(message)
+
+        normalized =
+          content
+          |> String.replace(~r/[ \t]+/u, " ")
+          |> String.replace(~r/\n{3,}/u, "\n\n")
+          |> String.trim()
+
+        Map.put(message, :content, normalized)
       end)
 
     {:ok, compressed}

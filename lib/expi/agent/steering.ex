@@ -757,16 +757,14 @@ defmodule Expi.Agent.Steering do
 
   @spec has_executing_tools?(AgentState.t()) :: boolean()
   defp has_executing_tools?(agent_state) do
-    # In a full implementation, this would check for actively executing tools
-    # For now, we'll check if there are pending tool calls
     count_pending_tools(agent_state) > 0
   end
 
   @spec count_pending_tools(AgentState.t()) :: non_neg_integer()
-  defp count_pending_tools(_agent_state) do
-    # In a full implementation, this would count actual pending tool calls
-    # For now, return 0 as a placeholder
-    0
+  defp count_pending_tools(agent_state) do
+    agent_state
+    |> State.get_pending_tool_calls()
+    |> MapSet.size()
   end
 
   @spec last_message_complete?(AgentState.t()) :: boolean()

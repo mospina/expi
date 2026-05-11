@@ -336,7 +336,6 @@ defmodule Expi.Agent do
     updated_state =
       agent_state
       |> State.enqueue_steering(steering_message)
-      |> State.add_message(steering_message)
 
     Logger.debug("Steering message added", %{
       content_preview: String.slice(content, 0, 50),
@@ -371,7 +370,6 @@ defmodule Expi.Agent do
     updated_state =
       agent_state
       |> State.enqueue_follow_up(follow_up_message)
-      |> State.add_message(follow_up_message)
 
     Logger.debug("Follow-up message added", %{
       content_preview: String.slice(content, 0, 50)
@@ -490,24 +488,31 @@ defmodule Expi.Agent do
   def process_turn(agent_state, options \\ %{}) do
     timeout = Map.get(options, :timeout, @default_tool_timeout)
     event_callback = Map.get(options, :event_callback)
+    start_time = System.monotonic_time(:millisecond)
+    initial_message_count = State.message_count(agent_state)
 
     Logger.debug("Processing single turn", %{
-      current_messages: State.message_count(agent_state),
+      current_messages: initial_message_count,
       timeout: timeout
     })
 
-    # Use the correct parameters for process_single_turn
     agent_options = build_agent_options(options)
     loop_options = [event_callback: event_callback]
 
     case Loop.process_single_turn(agent_state, agent_options, loop_options) do
       {:ok, updated_agent_state} ->
+        messages = State.get_messages(updated_agent_state)
+        processed_messages = max(State.message_count(updated_agent_state) - initial_message_count, 0)
+
+        tools_executed =
+          Enum.count(messages, fn msg ->
+            match?(%{role: :tool_result}, msg)
+          end)
+
         turn_data = %{
-          messages_processed: 1,
-          # Would be calculated in full implementation
-          tools_executed: 0,
-          # Would be calculated in full implementation
-          turn_duration: 0
+          messages_processed: processed_messages,
+          tools_executed: tools_executed,
+          turn_duration: System.monotonic_time(:millisecond) - start_time
         }
 
         {:ok, updated_agent_state, turn_data}
@@ -547,9 +552,6 @@ defmodule Expi.Agent do
       message_count: State.message_count(agent_state),
       has_callback: not is_nil(stream_callback)
     })
-
-    # For now, implement a simplified streaming approach
-    # In a full implementation, this would use the Loop module's streaming capabilities
 
     case process_turn(agent_state, %{emit_events: true, event_callback: stream_callback}) do
       {:ok, updated_state, _turn_data} ->

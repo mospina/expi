@@ -130,12 +130,15 @@ defmodule Expi.AI.Telemetry do
   Collect aggregated token usage metrics from ETS or other storage.
   """
   def collect_token_metrics do
-    # This would typically read from an ETS table or other storage
-    # For now, emit a heartbeat to indicate the collector is running
     :telemetry.execute(
-      [:expi, :metrics, :heartbeat],
-      %{timestamp: System.system_time()},
-      %{collector: :token_metrics}
+      [:expi, :metrics, :token_snapshot],
+      %{
+        timestamp: System.system_time(),
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0
+      },
+      %{collector: :token_metrics, data_source: :runtime_snapshot, has_data: false}
     )
   end
 
@@ -143,12 +146,15 @@ defmodule Expi.AI.Telemetry do
   Collect cost metrics and totals.
   """
   def collect_cost_metrics do
-    # This would typically aggregate cost data from storage
-    # For now, emit a heartbeat to indicate the collector is running
     :telemetry.execute(
-      [:expi, :metrics, :heartbeat],
-      %{timestamp: System.system_time()},
-      %{collector: :cost_metrics}
+      [:expi, :metrics, :cost_snapshot],
+      %{
+        timestamp: System.system_time(),
+        input_cost: 0.0,
+        output_cost: 0.0,
+        total_cost: 0.0
+      },
+      %{collector: :cost_metrics, data_source: :runtime_snapshot, has_data: false}
     )
   end
 
