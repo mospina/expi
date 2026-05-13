@@ -13,6 +13,7 @@ defmodule Expi.Session do
   alias Expi.Session.FeatureFlags
   alias Expi.Session.Manager
   alias Expi.Session.ResourceLoader
+  alias Expi.Session.ToolPolicy
   alias Expi.Types.Model
 
   @type create_session_result :: %{
@@ -29,7 +30,8 @@ defmodule Expi.Session do
   - `:provider` and `:model_id` - resolve model through `Expi.AI.get_model/2`
   - `:thinking_level` - default `:medium`
   - `:system_prompt` - default `""`
-  - `:tools` - default `[]`
+  - `:tools` - caller-provided tools appended after built-ins (default `[]`)
+  - `:tool_mode` - `:default` | `:none` | `{:only, [name]}` for built-in selection
   - `:cwd` - default current working directory
   - `:session_dir` - optional explicit session dir
   - `:session_manager` - optional pre-built manager
@@ -51,7 +53,7 @@ defmodule Expi.Session do
 
     with {:ok, model, model_fallback_message} <- resolve_model(options),
          {:ok, manager} <- resolve_manager(options),
-         {:ok, agent} <- create_agent(model, options),
+         {:ok, agent, builtin_tool_diagnostics} <- create_agent(model, options),
          {:ok, manager, agent} <- restore_or_initialize_session(manager, agent, options) do
       resource_loader =
         ResourceLoader.new(%{
@@ -78,7 +80,8 @@ defmodule Expi.Session do
         default_run_options: Map.get(options, :default_run_options, %{}),
         resource_loader: resource_loader,
         extension_runner: extension_runner,
-        feature_flags: feature_flags
+        feature_flags: feature_flags,
+        builtin_tool_diagnostics: builtin_tool_diagnostics
       }
 
       {:ok, %{session: session, model_fallback_message: model_fallback_message}}
@@ -124,14 +127,17 @@ defmodule Expi.Session do
 
   defp create_agent(model, options) do
     system_prompt = Map.get(options, :system_prompt, "")
-    tools = Map.get(options, :tools, [])
+    %{tools: tools, diagnostics: diagnostics} = ToolPolicy.resolve(options)
     thinking_level = normalize_thinking_level(Map.get(options, :thinking_level, :medium), model)
 
-    Agent.create(model, %{
-      system_prompt: system_prompt,
-      tools: tools,
-      thinking_level: thinking_level
-    })
+    case Agent.create(model, %{
+           system_prompt: system_prompt,
+           tools: tools,
+           thinking_level: thinking_level
+         }) do
+      {:ok, agent} -> {:ok, agent, diagnostics}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   defp restore_or_initialize_session(manager, agent, options) do

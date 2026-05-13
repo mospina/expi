@@ -2,6 +2,8 @@
 
 `Expi.Session` provides durable, branch-aware session orchestration on top of `Expi.Agent`, now with optional extensibility layers for prompts, skills, and extensions.
 
+Built-in tools are enabled by default to match pi-coding-agent’s out-of-the-box behavior.
+
 ## Highlights
 
 - Append-only JSONL persistence compatible with pi-mono session entries
@@ -45,6 +47,11 @@ This order keeps behavior predictable across CLI/server integrations.
 
 `Expi.Session.create_session/1` supports:
 
+- `:tool_mode` - built-in tool selection policy:
+  - `:default` (default): built-ins `read,bash,edit,write`
+  - `:none`: disable built-ins (caller `:tools` still apply)
+  - `{:only, ["name", ...]}`: select only specific built-ins from `read,bash,edit,write,grep,find,ls`
+- `:tools` - caller-provided tools appended after selected built-ins (last-wins on name collisions)
 - `:enable_resources` - enables prompt/skill loading
 - `:enable_extensions` - enables extension runtime
 - `:extensions` - extension modules implementing `Expi.Session.Extension`
@@ -65,6 +72,16 @@ This order keeps behavior predictable across CLI/server integrations.
 
 Agent dir defaults to `EXPI_CODING_AGENT_DIR`, then `PI_CODING_AGENT_DIR`, then `~/.pi/agent`.
 
+## Tool precedence
+
+Tool resolution keeps deterministic order:
+
+1. Built-in tools selected by `:tool_mode`
+2. Caller `:tools`
+3. Extension tools (via `ExtensionRunner.apply_tools/2`)
+
+When names collide, later registrations win.
+
 ## Runtime APIs
 
 Use these on `Expi.Session.AgentSession`:
@@ -72,7 +89,11 @@ Use these on `Expi.Session.AgentSession`:
 - `prompt/3` - send input with dispatch behavior
 - `reload_resources/2` - reload prompt/skill/extension runtime inputs
 - `get_commands/1` - discover extension/prompt/skill commands with metadata
-- `get_diagnostics/1` - inspect resource/extension warnings and collisions
+- `get_diagnostics/1` - inspect built-in/resource/extension warnings and collisions
+
+### Parity note
+
+Session default tool behavior tracks pi-coding-agent product behavior (default built-ins available at startup) rather than exact internal implementation details.
 
 ## Storage model
 

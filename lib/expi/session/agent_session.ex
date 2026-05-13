@@ -28,7 +28,8 @@ defmodule Expi.Session.AgentSession do
           default_run_options: map(),
           resource_loader: ResourceLoader.t() | nil,
           extension_runner: ExtensionRunner.t() | nil,
-          feature_flags: FeatureFlags.t() | nil
+          feature_flags: FeatureFlags.t() | nil,
+          builtin_tool_diagnostics: list()
         }
 
   defstruct agent: nil,
@@ -40,7 +41,8 @@ defmodule Expi.Session.AgentSession do
             default_run_options: %{},
             resource_loader: nil,
             extension_runner: nil,
-            feature_flags: nil
+            feature_flags: nil,
+            builtin_tool_diagnostics: []
 
   @type prompt_options :: %{
           optional(:images) => list(),
@@ -218,7 +220,9 @@ defmodule Expi.Session.AgentSession do
         runner -> ExtensionRunner.get_diagnostics(runner)
       end
 
-    resource_diagnostics ++ extension_diagnostics
+    builtin_diagnostics = session.builtin_tool_diagnostics || []
+
+    builtin_diagnostics ++ resource_diagnostics ++ extension_diagnostics
   end
 
   @spec steer(t(), String.t(), list()) :: {:ok, t()} | {:error, term()}

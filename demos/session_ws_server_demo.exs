@@ -46,6 +46,7 @@ end
 defmodule SessionWsServerDemo.Handler do
   @behaviour :cowboy_websocket
 
+  alias Expi.Agent
   alias Expi.Session
   alias Expi.Session.AgentSession
   alias Expi.Session.Manager
@@ -222,6 +223,26 @@ defmodule SessionWsServerDemo.Handler do
     {:ok, %{ok: true, type: "messages", count: length(messages), messages: messages}, state}
   end
 
+  defp route(%{"type" => "tools"}, %{session: nil} = state) do
+    {:error, %{ok: false, error: "session_not_initialized"}, state}
+  end
+
+  defp route(%{"type" => "tools"}, %{session: session} = state) do
+    tools =
+      session
+      |> AgentSession.state()
+      |> Agent.get_tools()
+      |> Enum.map(fn tool ->
+        %{
+          name: tool.function.name,
+          description: tool.function.description,
+          label: tool.label
+        }
+      end)
+
+    {:ok, %{ok: true, type: "tools", count: length(tools), tools: tools}, state}
+  end
+
   defp route(%{"type" => "stats"}, %{session: nil} = state) do
     {:ok, %{ok: true, type: "stats", initialized: false}, state}
   end
@@ -316,7 +337,7 @@ defmodule SessionWsServerDemo do
 
     IO.puts("🛰️  Session WebSocket demo server running on ws://localhost:#{port}/ws")
     IO.puts("🩺 Health endpoint available at http://localhost:#{port}/health")
-    IO.puts("Send JSON commands: create_session, prompt, messages, compact, reload, get_commands, diagnostics, stats")
+    IO.puts("Send JSON commands: create_session, prompt, messages, tools, compact, reload, get_commands, diagnostics, stats")
 
     Process.sleep(:infinity)
   end
