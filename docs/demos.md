@@ -103,7 +103,27 @@ elixir demos/session_lifecycle_demo.exs
 
 ---
 
-### 7. `session_ws_server_demo.exs` - Lightweight WebSocket Server ✅ NEW
+### 7. `session_cli_coding_assistant_demo.exs` - CLI Coding Assistant ✅ NEW
+**Advanced** minimal terminal demo for a Session-based coding assistant.
+
+- Session-based conversation loop (ephemeral by default)
+- Provider-backed responses (`run_conversation: true`)
+- Default built-in tool exposure (pi-style defaults)
+- Simple interaction model: type prompt, Enter to send, `/quit` to exit
+- Basic status + recent conversation visibility for coding-assistant flow
+
+```bash
+elixir demos/session_cli_coding_assistant_demo.exs
+```
+
+Suggested success criteria:
+- Demo starts without extra project setup beyond normal demo prerequisites
+- User can send at least one prompt and receive an assistant response
+- User can exit cleanly via keyboard shortcut
+
+---
+
+### 8. `session_ws_server_demo.exs` - Lightweight WebSocket Server ✅ NEW
 **Advanced** lightweight WebSocket server wrapping Session runtime.
 
 - Per-socket session state
@@ -147,7 +167,8 @@ Example commands:
 4. `real_streaming_demo.exs`
 5. `session_lifecycle_demo.exs`
 6. `advanced_agent_demo.exs`
-7. `session_ws_server_demo.exs`
+7. `session_cli_coding_assistant_demo.exs`
+8. `session_ws_server_demo.exs`
 
 ## 🧭 Notes
 

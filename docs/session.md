@@ -114,3 +114,17 @@ Recommended rollout:
 2. Enable `:enable_extensions` with a strict `:trusted_extensions` allow-list.
 3. Introduce command inventory (`get_commands/1`) for server/RPC clients.
 4. Use `get_diagnostics/1` to surface conflicts before full rollout.
+
+## Loop outcome diagnostics
+
+Session `:agent_end` events include an `:outcome` map:
+- `status` (`:completed | :stopped_incomplete | :error | :aborted`)
+- `stop_reason`
+- `turn_count`
+- `tool_calls_executed`
+- `empty_turn_count`
+- `metadata`
+
+`Expi.Session.AgentSession.last_run_outcome/1` exposes the most recent run outcome.
+
+Empty assistant turns are handled as guarded stops with diagnostics/outcome (not persisted placeholder assistant text).
