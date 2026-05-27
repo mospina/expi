@@ -96,6 +96,8 @@ defmodule Expi.Agent do
           optional(:steering_mode) => Queue.processing_mode(),
           optional(:follow_up_mode) => Queue.processing_mode(),
           optional(:tool_timeout) => pos_integer(),
+          optional(:tool_execution_strategy) => :sequential | :concurrent | :hybrid,
+          optional(:tool_max_concurrent) => pos_integer(),
           optional(:transform_context) => function(),
           optional(:convert_to_llm) => function(),
           optional(:stream_fn) => function()
@@ -444,7 +446,8 @@ defmodule Expi.Agent do
     loop_options = [
       max_turns: max_turns,
       timeout: timeout,
-      event_callback: event_callback
+      event_callback: event_callback,
+      max_consecutive_empty_turns: Map.get(options, :max_consecutive_empty_turns, 1)
     ]
 
     case Loop.run_agent_loop(agent_state, agent_options, loop_options) do

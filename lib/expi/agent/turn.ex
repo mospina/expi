@@ -53,8 +53,9 @@ defmodule Expi.Agent.Turn do
   @type stream_state :: %{
           partial_message: AssistantMessage.t(),
           content_buffer: String.t(),
-          tool_calls_buffer: [map()],
-          thinking_buffer: String.t()
+          tool_calls_buffer: map(),
+          thinking_buffer: String.t(),
+          block_types: map()
         }
 
   @doc """
@@ -179,8 +180,9 @@ defmodule Expi.Agent.Turn do
         stream_state = %{
           partial_message: create_initial_assistant_message(model),
           content_buffer: "",
-          tool_calls_buffer: [],
-          thinking_buffer: ""
+          tool_calls_buffer: %{},
+          thinking_buffer: "",
+          block_types: %{}
         }
 
         # Process the stream
@@ -335,6 +337,18 @@ defmodule Expi.Agent.Turn do
 
     case stream_with_optional_fn(model, context, stream_fn, event_callback) do
       {:ok, assistant_message} ->
+        assistant_message =
+          if assistant_message.content == [] do
+            Logger.warning("Empty streamed assistant message; retrying stream once")
+
+            case stream_with_optional_fn(model, context, stream_fn, event_callback) do
+              {:ok, retry_message} -> retry_message
+              {:error, _} -> assistant_message
+            end
+          else
+            assistant_message
+          end
+
         updated_context = %{turn_context | streaming_message: assistant_message}
         {:ok, updated_context}
 
@@ -385,6 +399,7 @@ defmodule Expi.Agent.Turn do
     tool_calls = turn_context.extracted_tools
 
     if is_nil(assistant_message) or (assistant_message.content == [] and tool_calls == []) do
+      Logger.warning("Empty turn result after tool/user input; returning guarded empty turn result")
       {:error, :empty_turn_result}
     else
       updated_state = State.add_message(agent_state, assistant_message)
@@ -433,7 +448,8 @@ defmodule Expi.Agent.Turn do
 
       :text_start ->
         # Text content block starting
-        stream_state
+        index = event.content_index || 0
+        %{stream_state | block_types: Map.put(stream_state.block_types, index, :text)}
 
       :text_delta ->
         # Incremental text content
@@ -465,12 +481,24 @@ defmodule Expi.Agent.Turn do
         %{stream_state | content_buffer: updated_buffer, partial_message: updated_message}
 
       :text_end ->
-        # Text content block completed
-        stream_state
+        # content_block_stop from Anthropic; dispatch by tracked block type
+        index = event.content_index || 0
+
+        case Map.get(stream_state.block_types, index, :text) do
+          :toolcall ->
+            case finalize_tool_call_from_buffer(stream_state, index) do
+              {:ok, updated_state} -> %{updated_state | block_types: Map.delete(updated_state.block_types, index)}
+              :not_found -> %{stream_state | block_types: Map.delete(stream_state.block_types, index)}
+            end
+
+          _ ->
+            %{stream_state | block_types: Map.delete(stream_state.block_types, index)}
+        end
 
       :thinking_start ->
         # Thinking/reasoning starting (Claude)
-        stream_state
+        index = event.content_index || 0
+        %{stream_state | block_types: Map.put(stream_state.block_types, index, :thinking)}
 
       :thinking_delta ->
         # Incremental thinking content
@@ -496,30 +524,46 @@ defmodule Expi.Agent.Turn do
 
       :toolcall_start ->
         # Tool call starting
-        stream_state
+        index = event.content_index || 0
+
+        tool_data =
+          if is_map(event.tool_call) do
+            %{
+              id: Map.get(event.tool_call, :id) || Map.get(event.tool_call, "id") || generate_tool_call_id(),
+              name: Map.get(event.tool_call, :name) || Map.get(event.tool_call, "name") || "unknown",
+              arguments: Map.get(event.tool_call, :arguments) || Map.get(event.tool_call, "arguments") || %{},
+              partial_json: ""
+            }
+          else
+            %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""}
+          end
+
+        %{
+          stream_state
+          | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, tool_data),
+            block_types: Map.put(stream_state.block_types, index, :toolcall)
+        }
 
       :toolcall_delta ->
         # Incremental tool call data
-        # In a full implementation, we'd build up the tool call incrementally
-        stream_state
+        index = event.content_index || 0
+        existing = Map.get(stream_state.tool_calls_buffer, index, %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""})
+        delta = if is_binary(event.delta), do: event.delta, else: ""
+        updated = %{existing | partial_json: existing.partial_json <> delta}
+
+        %{stream_state | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, updated)}
 
       :toolcall_end ->
         # Tool call completed
         if is_map(event.tool_call) do
-          tool_call_content = %{
-            type: :tool_call,
-            id: event.tool_call.id,
-            name: event.tool_call.name,
-            arguments: event.tool_call.arguments
-          }
-
-          updated_content = [tool_call_content | stream_state.partial_message.content]
-          updated_message = %{stream_state.partial_message | content: updated_content}
-
-          %{stream_state | partial_message: updated_message}
+          add_tool_call_content(stream_state, event.tool_call)
         else
-          Logger.warning("toolcall_end event missing tool_call payload")
-          stream_state
+          case finalize_tool_call_from_buffer(stream_state, event.content_index) do
+            {:ok, updated_state} -> updated_state
+            :not_found ->
+              Logger.warning("toolcall_end event missing tool_call payload")
+              stream_state
+          end
         end
 
       :done ->
@@ -553,6 +597,53 @@ defmodule Expi.Agent.Turn do
         Logger.debug("Unknown stream event type", %{type: event.type})
         stream_state
     end
+  end
+
+  defp finalize_tool_call_from_buffer(stream_state, index) when is_integer(index) do
+    case Map.pop(stream_state.tool_calls_buffer, index) do
+      {nil, _remaining} ->
+        :not_found
+
+      {tool_data, remaining} ->
+        arguments =
+          if is_binary(tool_data.partial_json) and tool_data.partial_json != "" do
+            case Jason.decode(tool_data.partial_json) do
+              {:ok, parsed} when is_map(parsed) -> parsed
+              _ -> tool_data.arguments || %{}
+            end
+          else
+            tool_data.arguments || %{}
+          end
+
+        tool_call = %{
+          id: tool_data.id,
+          name: tool_data.name,
+          arguments: arguments
+        }
+
+        updated_state =
+          stream_state
+          |> Map.put(:tool_calls_buffer, remaining)
+          |> add_tool_call_content(tool_call)
+
+        {:ok, updated_state}
+    end
+  end
+
+  defp finalize_tool_call_from_buffer(_stream_state, _index), do: :not_found
+
+  defp add_tool_call_content(stream_state, tool_call) do
+    tool_call_content = %{
+      type: :tool_call,
+      id: Map.get(tool_call, :id) || Map.get(tool_call, "id") || generate_tool_call_id(),
+      name: Map.get(tool_call, :name) || Map.get(tool_call, "name") || "unknown",
+      arguments: Map.get(tool_call, :arguments) || Map.get(tool_call, "arguments") || %{}
+    }
+
+    updated_content = [tool_call_content | stream_state.partial_message.content]
+    updated_message = %{stream_state.partial_message | content: updated_content}
+
+    %{stream_state | partial_message: updated_message}
   end
 
   @spec create_initial_assistant_message(Expi.Types.Model.t()) :: AssistantMessage.t()

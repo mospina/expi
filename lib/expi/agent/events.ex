@@ -527,7 +527,7 @@ defmodule Expi.Agent.Events do
         AgentEvent.agent_start()
 
       :end ->
-        AgentEvent.agent_end(agent_state.messages)
+        AgentEvent.agent_end(agent_state.messages, Map.get(agent_state, :loop_outcome))
 
       :error ->
         # Since AgentEvent doesn't have an error field, we'll create a basic event

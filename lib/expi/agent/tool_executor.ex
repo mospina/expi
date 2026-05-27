@@ -118,7 +118,7 @@ defmodule Expi.Agent.ToolExecutor do
     ensure_execution_table()
     timeout = Keyword.get(options, :timeout, @default_timeout)
     max_concurrent = Keyword.get(options, :max_concurrent, @default_max_concurrent)
-    strategy = Keyword.get(options, :strategy, :concurrent)
+    strategy = Keyword.get(options, :strategy, :sequential)
     on_update = Keyword.get(options, :on_update)
     on_complete = Keyword.get(options, :on_complete)
 
@@ -214,6 +214,8 @@ defmodule Expi.Agent.ToolExecutor do
       end
 
     try do
+      Logger.info("Executing tool name=#{tool_call.name} id=#{tool_call.id} args=#{inspect(summarize_arguments(tool_call.arguments))}")
+
       # Execute the tool
       case Expi.Agent.Tool.execute(
              tool,
@@ -239,6 +241,8 @@ defmodule Expi.Agent.ToolExecutor do
             is_error: false,
             timestamp: System.system_time(:millisecond)
           }
+
+          Logger.info("Tool execution succeeded name=#{tool_call.name} id=#{tool_call.id} duration_ms=#{execution_time}")
 
           if on_update do
             AgentToolCallback.on_complete(on_update, tool_call.id, tool_result, false)
@@ -267,6 +271,8 @@ defmodule Expi.Agent.ToolExecutor do
             is_error: true,
             timestamp: System.system_time(:millisecond)
           }
+
+          Logger.error("Tool execution failed name=#{tool_call.name} id=#{tool_call.id} reason=#{inspect(reason)} duration_ms=#{execution_time}")
 
           if on_update do
             AgentToolCallback.on_complete(on_update, tool_call.id, error_result, true)
@@ -309,6 +315,22 @@ defmodule Expi.Agent.ToolExecutor do
       end
     end
   end
+
+  defp summarize_arguments(arguments) when is_map(arguments) do
+    arguments
+    |> Enum.take(8)
+    |> Enum.map(fn {k, v} -> {k, summarize_value(v)} end)
+    |> Map.new()
+  end
+
+  defp summarize_arguments(_), do: %{}
+
+  defp summarize_value(v) when is_binary(v) and byte_size(v) > 120,
+    do: String.slice(v, 0, 120) <> "..."
+
+  defp summarize_value(v) when is_list(v), do: "[list length=#{length(v)}]"
+  defp summarize_value(v) when is_map(v), do: "{map keys=#{map_size(v)}}"
+  defp summarize_value(v), do: v
 
   @doc """
   Cancels a running tool execution by ID.

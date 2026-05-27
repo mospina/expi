@@ -62,9 +62,9 @@ defmodule Expi.HttpClient do
   @doc """
   Performs a streaming POST request.
   """
-  @spec stream_post(String.t(), map(), list(), list()) :: {:ok, reference()} | {:error, atom()}
+  @spec stream_post(String.t(), map() | String.t(), list(), list()) :: {:ok, reference()} | {:error, atom()}
   def stream_post(url, body, headers \\ [], options \\ []) do
-    json_body = Jason.encode!(body)
+    json_body = if is_binary(body), do: body, else: Jason.encode!(body)
     full_headers = [{"Content-Type", "application/json"} | headers]
     full_options = Keyword.merge(default_options(), options)
 

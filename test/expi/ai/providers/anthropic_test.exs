@@ -10,6 +10,7 @@ defmodule Expi.Providers.AnthropicTest do
     TextContent,
     ThinkingContent,
     ToolCall,
+    ToolResultMessage,
     Usage,
     UserMessage
   }
@@ -381,6 +382,51 @@ defmodule Expi.Providers.AnthropicTest do
       assert is_list(payload["tools"])
       assert length(payload["tools"]) == 1
       assert List.first(payload["tools"])["name"] == "calculator"
+    end
+
+    test "batches consecutive tool results into a single user message", %{model: model} do
+      context = %Context{
+        messages: [
+          %AssistantMessage{
+            role: :assistant,
+            content: [
+              %ToolCall{type: :tool_call, id: "call_1", name: "read", arguments: %{"path" => "a.txt"}}
+            ],
+            api: "anthropic-messages",
+            provider: "anthropic",
+            model: "claude-opus-4-5",
+            usage: nil,
+            stop_reason: :tool_use,
+            timestamp: System.system_time(:millisecond)
+          },
+          %ToolResultMessage{
+            role: :tool_result,
+            tool_call_id: "call_1",
+            tool_name: "read",
+            content: [%TextContent{type: :text, text: "file a"}],
+            details: %{},
+            is_error: false,
+            timestamp: System.system_time(:millisecond)
+          },
+          %ToolResultMessage{
+            role: :tool_result,
+            tool_call_id: "call_2",
+            tool_name: "grep",
+            content: [%TextContent{type: :text, text: "match"}],
+            details: %{},
+            is_error: false,
+            timestamp: System.system_time(:millisecond)
+          }
+        ]
+      }
+
+      assert {:ok, payload} = Anthropic.build_request_payload(model, context, %{})
+      assert length(payload["messages"]) == 2
+      tool_result_message = List.last(payload["messages"])
+      assert tool_result_message["role"] == "user"
+      assert is_list(tool_result_message["content"])
+      assert length(tool_result_message["content"]) == 2
+      assert Enum.all?(tool_result_message["content"], &(&1["type"] == "tool_result"))
     end
 
     test "handles reasoning options correctly", %{model: model} do

@@ -4,6 +4,8 @@ defmodule Expi.AI.Streaming do
   Handles Server-Sent Events (SSE) and real-time response processing.
   """
 
+  require Logger
+
   alias Expi.Types.{
     AssistantMessage,
     AssistantMessageEvent,
@@ -45,7 +47,7 @@ defmodule Expi.AI.Streaming do
   @doc """
   Creates a production streaming enumerable from HTTP SSE stream.
   """
-  @spec create_production_stream(String.t(), String.t(), list(), String.t(), String.t()) ::
+  @spec create_production_stream(String.t(), map() | String.t(), list(), String.t(), String.t()) ::
           {:ok, Enumerable.t()} | {:error, atom()}
   def create_production_stream(url, body, headers, provider, model_id) do
     case Expi.AI.HttpClient.stream_post(url, body, headers) do
@@ -231,20 +233,33 @@ defmodule Expi.AI.Streaming do
   """
   @spec standardize_event(map(), String.t()) :: AssistantMessageEvent.t() | nil
   def standardize_event(event_data, "anthropic") do
+    log_anthropic_event(event_data)
+
     case event_data do
       %{"type" => "message_start"} ->
         %AssistantMessageEvent{type: :start}
 
-      %{"type" => "content_block_start", "content_block" => block} ->
+      %{"type" => "content_block_start", "content_block" => block} = data ->
+        index = Map.get(data, "index")
+
         case block["type"] do
           "text" ->
-            %AssistantMessageEvent{type: :text_start, content_index: block["index"]}
+            %AssistantMessageEvent{type: :text_start, content_index: index}
 
           "thinking" ->
-            %AssistantMessageEvent{type: :thinking_start, content_index: block["index"]}
+            %AssistantMessageEvent{type: :thinking_start, content_index: index}
 
           "tool_use" ->
-            %AssistantMessageEvent{type: :toolcall_start, content_index: block["index"]}
+            %AssistantMessageEvent{
+              type: :toolcall_start,
+              content_index: index,
+              tool_call: %ToolCall{
+                type: :tool_call,
+                id: block["id"] || "",
+                name: block["name"] || "",
+                arguments: block["input"] || %{}
+              }
+            }
         end
 
       %{"type" => "content_block_delta", "delta" => delta, "index" => index} ->
@@ -262,10 +277,24 @@ defmodule Expi.AI.Streaming do
               content_index: index,
               delta: delta["thinking"]
             }
+
+          "input_json_delta" ->
+            %AssistantMessageEvent{
+              type: :toolcall_delta,
+              content_index: index,
+              delta: delta["partial_json"]
+            }
+
+          _ ->
+            nil
         end
 
-      %{"type" => "content_block_stop", "index" => index} ->
-        %AssistantMessageEvent{type: :text_end, content_index: index}
+      %{"type" => "content_block_stop", "index" => index} = stop_event ->
+        case get_in(stop_event, ["content_block", "type"]) do
+          "thinking" -> %AssistantMessageEvent{type: :thinking_end, content_index: index}
+          "tool_use" -> %AssistantMessageEvent{type: :toolcall_end, content_index: index}
+          _ -> %AssistantMessageEvent{type: :text_end, content_index: index}
+        end
 
       %{"type" => "message_delta", "delta" => delta} ->
         case delta do
@@ -292,6 +321,20 @@ defmodule Expi.AI.Streaming do
         nil
     end
   end
+
+  defp log_anthropic_event(%{"type" => type} = data) do
+    summary = %{
+      type: type,
+      index: Map.get(data, "index"),
+      delta_type: get_in(data, ["delta", "type"]),
+      block_type: get_in(data, ["content_block", "type"]),
+      stop_reason: get_in(data, ["delta", "stop_reason"])
+    }
+
+    Logger.debug("Anthropic stream event #{inspect(summary)}")
+  end
+
+  defp log_anthropic_event(_), do: :ok
 
   def standardize_event(event_data, "google") do
     # Gemini uses different streaming format

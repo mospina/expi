@@ -16,6 +16,7 @@ defmodule Expi.Providers.Anthropic do
     TextContent,
     ThinkingContent,
     ToolCall,
+    ToolResultMessage,
     Usage,
     UserMessage
   }
@@ -168,7 +169,30 @@ defmodule Expi.Providers.Anthropic do
   end
 
   defp format_anthropic_messages(messages) do
-    Enum.map(messages, &format_anthropic_message/1)
+    do_format_anthropic_messages(messages, []) |> Enum.reverse()
+  end
+
+  defp do_format_anthropic_messages([], acc), do: acc
+
+  defp do_format_anthropic_messages([%ToolResultMessage{} = msg | rest], acc) do
+    {tool_results, remaining} = Enum.split_while(rest, &match?(%ToolResultMessage{}, &1))
+    batch = [msg | tool_results]
+
+    content_blocks =
+      Enum.map(batch, fn tool_msg ->
+        %{
+          "type" => "tool_result",
+          "tool_use_id" => tool_msg.tool_call_id,
+          "content" => Base.extract_text_content(tool_msg.content),
+          "is_error" => tool_msg.is_error
+        }
+      end)
+
+    do_format_anthropic_messages(remaining, [%{"role" => "user", "content" => content_blocks} | acc])
+  end
+
+  defp do_format_anthropic_messages([message | rest], acc) do
+    do_format_anthropic_messages(rest, [format_anthropic_message(message) | acc])
   end
 
   defp format_anthropic_message(%UserMessage{role: :user, content: content})
@@ -183,9 +207,53 @@ defmodule Expi.Providers.Anthropic do
   end
 
   defp format_anthropic_message(%AssistantMessage{role: :assistant, content: content}) do
-    text = Base.extract_text_content(content)
-    %{"role" => "assistant", "content" => text}
+    formatted_content =
+      content
+      |> Enum.map(&format_assistant_content_block/1)
+      |> Enum.reject(&is_nil/1)
+
+    case formatted_content do
+      [] ->
+        text = Base.extract_text_content(content)
+        %{"role" => "assistant", "content" => text}
+
+      blocks ->
+        %{"role" => "assistant", "content" => blocks}
+    end
   end
+
+  defp format_anthropic_message(%ToolResultMessage{role: :tool_result} = msg) do
+    %{
+      "role" => "user",
+      "content" => [
+        %{
+          "type" => "tool_result",
+          "tool_use_id" => msg.tool_call_id,
+          "content" => Base.extract_text_content(msg.content),
+          "is_error" => msg.is_error
+        }
+      ]
+    }
+  end
+
+  defp format_assistant_content_block(%{type: :text, text: text}) when is_binary(text) do
+    %{"type" => "text", "text" => text}
+  end
+
+  defp format_assistant_content_block(%TextContent{type: :text, text: text}) do
+    %{"type" => "text", "text" => text}
+  end
+
+  defp format_assistant_content_block(%{type: :tool_call, id: id, name: name, arguments: args}) do
+    %{
+      "type" => "tool_use",
+      "id" => id,
+      "name" => name,
+      "input" => args || %{}
+    }
+  end
+
+  defp format_assistant_content_block(_), do: nil
 
   defp format_content_block(%TextContent{type: :text, text: text}) do
     %{"type" => "text", "text" => text}
@@ -223,9 +291,35 @@ defmodule Expi.Providers.Anthropic do
     %{
       "name" => name,
       "description" => desc,
-      "input_schema" => schema
+      "input_schema" => normalize_schema(schema)
     }
   end
+
+  defp format_tool(%Expi.Types.Tool{type: :function, function: %{name: name, description: desc, parameters: params}}) do
+    %{
+      "name" => name,
+      "description" => desc,
+      "input_schema" => normalize_schema(params)
+    }
+  end
+
+  defp format_tool(%{function: %{name: name, description: desc, parameters: params}}) do
+    %{
+      "name" => name,
+      "description" => desc,
+      "input_schema" => normalize_schema(params)
+    }
+  end
+
+  defp normalize_schema(value) when is_map(value) do
+    value
+    |> Enum.map(fn {k, v} -> {to_string(k), normalize_schema(v)} end)
+    |> Map.new()
+  end
+
+  defp normalize_schema(value) when is_list(value), do: Enum.map(value, &normalize_schema/1)
+  defp normalize_schema(value) when is_atom(value), do: to_string(value)
+  defp normalize_schema(value), do: value
 
   defp maybe_add_reasoning(payload, %{reasoning: reasoning})
        when reasoning in ["high", "medium", "low"] do
@@ -310,9 +404,7 @@ defmodule Expi.Providers.Anthropic do
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
       # Attempt production streaming - if it fails, return the error
-      body = Jason.encode!(payload)
-
-      case Expi.AI.Streaming.create_production_stream(url, body, headers, "anthropic", model.id) do
+      case Expi.AI.Streaming.create_production_stream(url, payload, headers, "anthropic", model.id) do
         {:ok, event_stream} ->
           # create_production_stream already converts to AssistantMessageEvent format
           # No additional transformation needed

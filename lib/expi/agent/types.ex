@@ -41,7 +41,8 @@ defmodule Expi.Agent.Types do
             created_at: pos_integer(),
             max_context_length: pos_integer() | nil,
             temperature: float() | nil,
-            streaming: boolean()
+            streaming: boolean(),
+            loop_outcome: map() | nil
           }
 
     defstruct system_prompt: "",
@@ -58,7 +59,8 @@ defmodule Expi.Agent.Types do
               created_at: nil,
               max_context_length: nil,
               temperature: nil,
-              streaming: true
+              streaming: true,
+              loop_outcome: nil
 
     @doc """
     Validates if an agent state structure is valid.
@@ -223,7 +225,8 @@ defmodule Expi.Agent.Types do
             args: any() | nil,
             partial_result: any() | nil,
             result: any() | nil,
-            is_error: boolean() | nil
+            is_error: boolean() | nil,
+            outcome: map() | nil
           }
 
     defstruct [
@@ -237,7 +240,8 @@ defmodule Expi.Agent.Types do
       :args,
       :partial_result,
       :result,
-      :is_error
+      :is_error,
+      :outcome
     ]
 
     # Valid event types
@@ -272,9 +276,9 @@ defmodule Expi.Agent.Types do
     @doc """
     Creates an agent end event.
     """
-    @spec agent_end([AgentMessage.t()]) :: t()
-    def agent_end(messages) do
-      %__MODULE__{type: :agent_end, messages: messages}
+    @spec agent_end([AgentMessage.t()], map() | nil) :: t()
+    def agent_end(messages, outcome \\ nil) do
+      %__MODULE__{type: :agent_end, messages: messages, outcome: outcome}
     end
 
     @doc """

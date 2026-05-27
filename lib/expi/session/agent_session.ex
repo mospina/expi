@@ -29,7 +29,8 @@ defmodule Expi.Session.AgentSession do
           resource_loader: ResourceLoader.t() | nil,
           extension_runner: ExtensionRunner.t() | nil,
           feature_flags: FeatureFlags.t() | nil,
-          builtin_tool_diagnostics: list()
+          builtin_tool_diagnostics: list(),
+          last_run_outcome: map() | nil
         }
 
   defstruct agent: nil,
@@ -42,7 +43,8 @@ defmodule Expi.Session.AgentSession do
             resource_loader: nil,
             extension_runner: nil,
             feature_flags: nil,
-            builtin_tool_diagnostics: []
+            builtin_tool_diagnostics: [],
+            last_run_outcome: nil
 
   @type prompt_options :: %{
           optional(:images) => list(),
@@ -107,12 +109,14 @@ defmodule Expi.Session.AgentSession do
                     final_agent.messages
                   )
 
-                session = %__MODULE__{session | agent: final_agent, session_manager: manager}
+                outcome = Map.get(final_agent, :loop_outcome)
+                session = %__MODULE__{session | agent: final_agent, session_manager: manager, last_run_outcome: outcome}
 
                 session =
                   emit_sync(session, %{
                     type: :agent_end,
-                    messages: final_agent.messages
+                    messages: final_agent.messages,
+                    outcome: outcome
                   })
 
                 if assistant_turn_completed?(agent_after_user.messages, final_agent.messages) do
@@ -457,6 +461,9 @@ defmodule Expi.Session.AgentSession do
 
   @spec session_manager(t()) :: Manager.t()
   def session_manager(%__MODULE__{session_manager: manager}), do: manager
+
+  @spec last_run_outcome(t()) :: map() | nil
+  def last_run_outcome(%__MODULE__{last_run_outcome: outcome}), do: outcome
 
   defp dispatch_input(%__MODULE__{} = session, text, images, expand_resources) do
     with {:ok, session, text} <- maybe_execute_extension_command(session, text),

@@ -64,7 +64,12 @@ defmodule Expi.Agent.Loop do
           message_queue: message_queue(),
           current_turn: non_neg_integer(),
           loop_start_time: pos_integer(),
-          options: AgentOptions.t()
+          options: AgentOptions.t(),
+          empty_turn_count: non_neg_integer(),
+          max_consecutive_empty_turns: non_neg_integer(),
+          tool_calls_executed: non_neg_integer(),
+          stop_reason: atom() | nil,
+          status: :running | :completed | :stopped_incomplete | :error | :aborted
         }
 
   # 5 minutes
@@ -129,6 +134,8 @@ defmodule Expi.Agent.Loop do
     timeout = Keyword.get(options, :timeout, @default_timeout)
     event_callback = Keyword.get(options, :event_callback)
 
+    max_empty_turns = Keyword.get(options, :max_consecutive_empty_turns, 1)
+
     # Initialize loop state
     loop_state = %{
       agent_state: initial_state,
@@ -138,7 +145,12 @@ defmodule Expi.Agent.Loop do
       },
       current_turn: 0,
       loop_start_time: System.system_time(:millisecond),
-      options: agent_options
+      options: agent_options,
+      empty_turn_count: 0,
+      max_consecutive_empty_turns: max_empty_turns,
+      tool_calls_executed: 0,
+      stop_reason: nil,
+      status: :running
     }
 
     Logger.info("Starting agent loop", %{
@@ -160,10 +172,11 @@ defmodule Expi.Agent.Loop do
 
       case Task.await(task, timeout) do
         {:ok, final_loop_state} ->
-          final_state = final_loop_state.agent_state
+          outcome = build_loop_outcome(final_loop_state)
+          final_state = Map.put(final_loop_state.agent_state, :loop_outcome, outcome)
 
           # Emit agent end event
-          end_event = Events.agent_lifecycle_event(:end, final_state)
+          end_event = Expi.Agent.Types.AgentEvent.agent_end(final_state.messages, outcome)
           emit_event_if_callback(end_event, event_callback)
 
           Logger.info("Agent loop completed", %{
@@ -229,7 +242,12 @@ defmodule Expi.Agent.Loop do
       },
       current_turn: 1,
       loop_start_time: System.system_time(:millisecond),
-      options: agent_options
+      options: agent_options,
+      empty_turn_count: 0,
+      max_consecutive_empty_turns: 1,
+      tool_calls_executed: 0,
+      stop_reason: nil,
+      status: :running
     }
 
     Turn.execute_turn(loop_state, event_callback)
@@ -296,13 +314,17 @@ defmodule Expi.Agent.Loop do
   """
   @spec should_continue?(loop_state()) :: boolean()
   def should_continue?(loop_state) do
-    has_pending_tools = State.has_pending_tools?(loop_state.agent_state)
+    if loop_state.status in [:error, :aborted, :stopped_incomplete] do
+      false
+    else
+      has_pending_tools = State.has_pending_tools?(loop_state.agent_state)
     has_steering = length(loop_state.message_queue.steering) > 0
     has_follow_up = length(loop_state.message_queue.follow_up) > 0
     is_streaming = State.is_streaming?(loop_state.agent_state)
     needs_assistant_turn = last_message_requires_response?(loop_state.agent_state)
 
-    has_pending_tools or has_steering or has_follow_up or is_streaming or needs_assistant_turn
+      has_pending_tools or has_steering or has_follow_up or is_streaming or needs_assistant_turn
+    end
   end
 
   @doc """
@@ -393,8 +415,12 @@ defmodule Expi.Agent.Loop do
                 outer_loop(new_loop_state, max_turns, event_callback)
 
               {final_loop_state, false} ->
-                # No more follow-up messages
-                {:ok, final_loop_state}
+                # No follow-up queue items; continue if loop conditions still require work
+                if should_continue?(final_loop_state) do
+                  outer_loop(final_loop_state, max_turns, event_callback)
+                else
+                  {:ok, final_loop_state}
+                end
             end
 
           {:error, reason} = error ->
@@ -414,6 +440,9 @@ defmodule Expi.Agent.Loop do
          {:ok, final_state} <- finalize_turn_processing(tools_state, event_callback) do
       {:ok, final_state}
     else
+      {:empty_turn, updated_loop_state} ->
+        {:ok, updated_loop_state}
+
       {:error, reason} = error ->
         Logger.error("Turn processing failed", %{
           reason: inspect(reason),
@@ -442,8 +471,33 @@ defmodule Expi.Agent.Loop do
   defp process_assistant_turn(loop_state, event_callback) do
     case Turn.execute_turn(loop_state, event_callback) do
       {:ok, updated_agent_state} ->
-        updated_loop_state = %{loop_state | agent_state: updated_agent_state}
-        {:ok, updated_loop_state}
+        updated_loop_state = %{loop_state | agent_state: updated_agent_state, empty_turn_count: 0}
+
+        case List.last(State.get_messages(updated_agent_state)) do
+          %{role: :assistant, stop_reason: :aborted} ->
+            {:ok, %{updated_loop_state | status: :aborted, stop_reason: :aborted}}
+
+          %{role: :assistant, stop_reason: :error} ->
+            {:ok, %{updated_loop_state | status: :error, stop_reason: :provider_error}}
+
+          _ ->
+            {:ok, updated_loop_state}
+        end
+
+      {:error, :empty_turn_result} ->
+        next_empty_count = loop_state.empty_turn_count + 1
+
+        if next_empty_count > loop_state.max_consecutive_empty_turns do
+          {:empty_turn,
+           %{
+             loop_state
+             | empty_turn_count: next_empty_count,
+               status: :stopped_incomplete,
+               stop_reason: :stopped_empty_after_tools
+           }}
+        else
+          {:empty_turn, %{loop_state | empty_turn_count: next_empty_count}}
+        end
 
       {:error, _reason} = error ->
         error
@@ -453,6 +507,9 @@ defmodule Expi.Agent.Loop do
   @spec handle_turn_tool_calls(loop_state(), function() | nil) ::
           {:ok, loop_state()} | {:error, any()}
   defp handle_turn_tool_calls(loop_state, event_callback) do
+    if loop_state.status in [:error, :aborted, :stopped_incomplete] do
+      {:ok, loop_state}
+    else
     # Check if there are pending tool calls to execute
     pending_tools = State.get_pending_tool_calls(loop_state.agent_state)
 
@@ -474,6 +531,7 @@ defmodule Expi.Agent.Loop do
     else
       # No tools to execute
       {:ok, loop_state}
+    end
     end
   end
 
@@ -593,25 +651,60 @@ defmodule Expi.Agent.Loop do
           end
 
         # Execute tools
-        case ToolExecutor.execute_tools_concurrent(tool_calls, available_tools,
-               on_complete: tool_callback
-             ) do
-          {:ok, tool_results} ->
-            # Add tool results to state
-            updated_agent_state = State.add_messages(loop_state.agent_state, tool_results)
+        tool_strategy = Map.get(loop_state.options, :tool_execution_strategy, :sequential)
+        tool_timeout = Map.get(loop_state.options, :tool_timeout)
+        max_concurrent = Map.get(loop_state.options, :tool_max_concurrent)
 
-            # Clear pending tool calls
-            cleared_agent_state =
-              Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
-                State.remove_pending_tool_call(state, tool_call.id)
-              end)
+        if tool_strategy == :sequential do
+          {results, _remaining, executed_count} =
+            execute_tools_with_steering_interrupt(
+              tool_calls,
+              available_tools,
+              tool_timeout,
+              tool_callback,
+              loop_state.agent_state
+            )
 
-            updated_loop_state = %{loop_state | agent_state: cleared_agent_state}
-            {:ok, updated_loop_state}
+          updated_agent_state = State.add_messages(loop_state.agent_state, results)
 
-          {:error, reason} = error ->
-            Logger.error("Tool execution failed", %{reason: inspect(reason)})
-            error
+          cleared_agent_state =
+            Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
+              State.remove_pending_tool_call(state, tool_call.id)
+            end)
+
+          {:ok,
+           %{
+             loop_state
+             | agent_state: cleared_agent_state,
+               tool_calls_executed: loop_state.tool_calls_executed + executed_count
+           }}
+        else
+          tool_exec_opts =
+            [on_complete: tool_callback, strategy: tool_strategy]
+            |> maybe_put_opt(:timeout, tool_timeout)
+            |> maybe_put_opt(:max_concurrent, max_concurrent)
+
+          case ToolExecutor.execute_tools_concurrent(tool_calls, available_tools, tool_exec_opts) do
+            {:ok, tool_results} ->
+              updated_agent_state = State.add_messages(loop_state.agent_state, tool_results)
+
+              cleared_agent_state =
+                Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
+                  State.remove_pending_tool_call(state, tool_call.id)
+                end)
+
+              updated_loop_state = %{
+                loop_state
+                | agent_state: cleared_agent_state,
+                  tool_calls_executed: loop_state.tool_calls_executed + length(tool_calls)
+              }
+
+              {:ok, updated_loop_state}
+
+            {:error, reason} = error ->
+              Logger.error("Tool execution failed", %{reason: inspect(reason)})
+              error
+          end
         end
 
       {:error, reason} = error ->
@@ -673,6 +766,85 @@ defmodule Expi.Agent.Loop do
   end
 
   defp take_by_mode(messages, _mode), do: {messages, []}
+
+  defp maybe_put_opt(opts, _key, nil), do: opts
+  defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp execute_tools_with_steering_interrupt(tool_calls, available_tools, tool_timeout, tool_callback, agent_state) do
+    tool_map =
+      available_tools
+      |> Enum.map(fn tool -> {Expi.Agent.Types.AgentTool.name(tool), tool} end)
+      |> Map.new()
+
+    Enum.reduce_while(Enum.with_index(tool_calls), {[], tool_calls, 0}, fn {tool_call, idx}, {acc, _remaining, executed} ->
+      steering_queue = Map.get(agent_state, :steering_queue, [])
+
+      if idx > 0 and length(steering_queue) > 0 do
+        skipped =
+          tool_calls
+          |> Enum.drop(idx)
+          |> Enum.map(&skipped_tool_result/1)
+
+        {:halt, {acc ++ skipped, [], executed}}
+      else
+        result =
+          case Map.get(tool_map, tool_call.name) do
+            nil -> skipped_tool_result(tool_call)
+            tool ->
+              exec_opts =
+                []
+                |> maybe_put_opt(:timeout, tool_timeout)
+                |> Keyword.put(:on_update, nil)
+
+              {:ok, tool_result} =
+                ToolExecutor.execute_single_tool(
+                  tool_call,
+                  tool,
+                  exec_opts
+                )
+
+              if is_function(tool_callback) do
+                tool_callback.(tool_result)
+              end
+
+              tool_result
+          end
+
+        {:cont, {acc ++ [result], Enum.drop(tool_calls, idx + 1), executed + 1}}
+      end
+    end)
+  end
+
+  defp skipped_tool_result(tool_call) do
+    %Expi.Types.ToolResultMessage{
+      role: :tool_result,
+      tool_call_id: tool_call.id,
+      tool_name: tool_call.name,
+      content: [
+        %Expi.Types.TextContent{type: :text, text: "Skipped due to queued user message."}
+      ],
+      details: %{skipped: true, reason: :steering_interrupt},
+      is_error: true,
+      timestamp: System.system_time(:millisecond)
+    }
+  end
+
+  defp build_loop_outcome(loop_state) do
+    status =
+      case loop_state.status do
+        :running -> :completed
+        other -> other
+      end
+
+    %{
+      status: status,
+      stop_reason: loop_state.stop_reason || :completed,
+      turn_count: loop_state.current_turn,
+      tool_calls_executed: loop_state.tool_calls_executed,
+      empty_turn_count: loop_state.empty_turn_count,
+      metadata: %{}
+    }
+  end
 
   @spec emit_event_if_callback(AgentEvent.t(), function() | nil) :: :ok
   defp emit_event_if_callback(_event, nil), do: :ok

@@ -49,7 +49,7 @@ defmodule Expi.AI.HttpClient do
   @doc """
   Makes a streaming POST request for Server-Sent Events.
   """
-  @spec stream_post(String.t(), String.t(), list()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  @spec stream_post(String.t(), map() | String.t(), list()) :: {:ok, Enumerable.t()} | {:error, atom()}
   def stream_post(url, body, headers) do
     # Start the async request immediately and collect all chunks
     options = [
@@ -63,7 +63,9 @@ defmodule Expi.AI.HttpClient do
       async: :once
     ]
 
-    case HTTPoison.post(url, body, headers, options) do
+    encoded_body = if is_binary(body), do: body, else: Jason.encode!(body)
+
+    case HTTPoison.post(url, encoded_body, headers, options) do
       {:ok, %HTTPoison.AsyncResponse{id: id}} ->
         # Collect all chunks immediately
         chunks = collect_all_chunks(id)
