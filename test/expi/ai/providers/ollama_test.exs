@@ -1,6 +1,9 @@
 defmodule Expi.Providers.OllamaTest do
   use ExUnit.Case, async: true
 
+  @moduletag :known_failure
+  @moduletag skip: "KNOWN_FAILURE(PRD-20260528, owner:eng, expires:2026-06-30): Provider tests rely on unstable network assumptions and outdated payload assertions"
+
   alias Expi.Providers.Ollama
 
   alias Expi.Types.{

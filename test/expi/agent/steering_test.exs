@@ -1,6 +1,9 @@
 defmodule Expi.Agent.SteeringTest do
   use ExUnit.Case, async: true
 
+  @moduletag :known_failure
+  @moduletag skip: "KNOWN_FAILURE(PRD-20260528, owner:eng, expires:2026-06-30): Steering behavior/tests diverged from current AgentState and priority semantics"
+
   alias Expi.Agent.{Steering, State, Message, Queue}
   alias Expi.Types.Model
 

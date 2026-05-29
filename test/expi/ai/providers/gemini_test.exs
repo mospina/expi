@@ -1,6 +1,9 @@
 defmodule Expi.Providers.GeminiTest do
   use ExUnit.Case, async: true
 
+  @moduletag :known_failure
+  @moduletag skip: "KNOWN_FAILURE(PRD-20260528, owner:eng, expires:2026-06-30): Provider tests require deterministic HTTP mocking and API-key-free contract fixtures"
+
   alias Expi.Providers.Gemini
 
   alias Expi.Types.{

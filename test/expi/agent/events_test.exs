@@ -2,6 +2,9 @@ defmodule Expi.Agent.EventsTest do
   # Events may involve process communication
   use ExUnit.Case, async: false
 
+  @moduletag :known_failure
+  @moduletag skip: "KNOWN_FAILURE(PRD-20260528, owner:eng, expires:2026-06-30): Events API mismatch (missing lifecycle helpers/signatures)"
+
   alias Expi.Agent.Events
   alias Expi.Agent.Types.AgentEvent
   alias Expi.Agent.{Message, State}

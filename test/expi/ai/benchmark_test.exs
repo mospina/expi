@@ -307,7 +307,7 @@ defmodule Expi.AI.BenchmarkTest do
           }
         end
 
-      stream = Stream.from_enumerable(events)
+      stream = events
 
       # Measure processing time
       {time_us, result} =

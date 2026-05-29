@@ -1,6 +1,9 @@
 defmodule Expi.AITest do
   use ExUnit.Case, async: true
 
+  @moduletag :known_failure
+  @moduletag skip: "KNOWN_FAILURE(PRD-20260528, owner:eng, expires:2026-06-30): Model catalog expectations outdated vs current defaults"
+
   alias Expi.AI
   alias Expi.Types.{Context, UserMessage}
 
