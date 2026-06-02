@@ -743,13 +743,11 @@ end
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
 - [GitHub Repository](https://github.com/expi/expi)
-- [Hex Package](https://hex.pm/packages/expi)
-- [Documentation](https://hexdocs.pm/expi)
 - [Changelog](CHANGELOG.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 
