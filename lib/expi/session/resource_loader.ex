@@ -184,153 +184,149 @@ defmodule Expi.Session.ResourceLoader do
   end
 
   defp load_prompts(sources) do
-    Enum.reduce(sources, {[], [], MapSet.new()}, fn source, {acc, diagnostics, names} ->
-      if File.exists?(source.path) do
-        files =
-          if File.dir?(source.path) do
-            source.path
-            |> File.ls!()
-            |> Enum.filter(&String.ends_with?(&1, ".md"))
-            |> Enum.map(&Path.join(source.path, &1))
-          else
-            [source.path]
-          end
+    sources
+    |> Enum.reduce({[], [], MapSet.new()}, &reduce_prompt_source/2)
+    |> finalize_resource_accumulator()
+  end
 
-        Enum.reduce(files, {acc, diagnostics, names}, fn file, {a, d, n} ->
-          case load_prompt_file(file, source) do
-            {:ok, prompt} ->
-              if MapSet.member?(n, prompt.name) do
-                diag =
-                  %ResourceDiagnostic{
-                    severity: :collision,
-                    message: "prompt name collision: /#{prompt.name}",
-                    path: file,
-                    source: Atom.to_string(source.source)
-                  }
-
-                {a, d ++ [diag], n}
-              else
-                {a ++ [prompt], d, MapSet.put(n, prompt.name)}
-              end
-
-            {:error, reason} ->
-              diag =
-                %ResourceDiagnostic{
-                  severity: :warning,
-                  message: reason,
-                  path: file,
-                  source: Atom.to_string(source.source)
-                }
-
-              {a, d ++ [diag], n}
-          end
-        end)
-      else
-        {acc, diagnostics, names}
-      end
+  defp reduce_prompt_source(source, acc) do
+    source
+    |> prompt_source_files()
+    |> Enum.reduce(acc, fn file, inner_acc ->
+      file
+      |> load_prompt_file(source)
+      |> merge_resource_result(:prompt, file, source, inner_acc)
     end)
-    |> then(fn {prompts, diagnostics, _} -> {prompts, diagnostics} end)
+  end
+
+  defp prompt_source_files(%{path: path}) do
+    cond do
+      not File.exists?(path) -> []
+      File.dir?(path) -> path |> File.ls!() |> Enum.filter(&String.ends_with?(&1, ".md")) |> Enum.map(&Path.join(path, &1))
+      true -> [path]
+    end
   end
 
   defp load_prompt_file(file, source) do
-    with {:ok, raw} <- File.read(file) do
-      {frontmatter, body} = split_frontmatter(raw)
-      name = Path.basename(file, ".md")
-      description = Map.get(frontmatter, "description") || first_non_empty_line(body)
+    case File.read(file) do
+      {:ok, raw} ->
+        {frontmatter, body} = split_frontmatter(raw)
+        name = Path.basename(file, ".md")
+        description = Map.get(frontmatter, "description") || first_non_empty_line(body)
 
-      {:ok,
-       %PromptTemplate{
-         name: name,
-         description: description,
-         content: body,
-         source: source.source,
-         file_path: file,
-         location: source.location
-       }}
-    else
-      {:error, reason} -> {:error, "failed to read prompt file: #{inspect(reason)}"}
+        {:ok,
+         %PromptTemplate{
+           name: name,
+           description: description,
+           content: body,
+           source: source.source,
+           file_path: file,
+           location: source.location
+         }}
+
+      {:error, reason} ->
+        {:error, "failed to read prompt file: #{inspect(reason)}"}
     end
   end
 
   defp load_skills(sources) do
-    Enum.reduce(sources, {[], [], MapSet.new()}, fn source, {acc, diagnostics, names} ->
-      entries =
-        cond do
-          not File.exists?(source.path) ->
-            []
+    sources
+    |> Enum.reduce({[], [], MapSet.new()}, &reduce_skill_source/2)
+    |> finalize_resource_accumulator()
+  end
 
-          File.dir?(source.path) ->
-            collect_skill_files(source.path)
-
-          String.ends_with?(source.path, ".md") ->
-            [source.path]
-
-          true ->
-            []
-        end
-
-      Enum.reduce(entries, {acc, diagnostics, names}, fn file, {a, d, n} ->
-        case load_skill_file(file, source) do
-          {:ok, skill} ->
-            if MapSet.member?(n, skill.name) do
-              diag =
-                %ResourceDiagnostic{
-                  severity: :collision,
-                  message: "skill name collision: #{skill.name}",
-                  path: file,
-                  source: Atom.to_string(source.source)
-                }
-
-              {a, d ++ [diag], n}
-            else
-              {a ++ [skill], d, MapSet.put(n, skill.name)}
-            end
-
-          {:error, reason} ->
-            diag =
-              %ResourceDiagnostic{
-                severity: :warning,
-                message: reason,
-                path: file,
-                source: Atom.to_string(source.source)
-              }
-
-            {a, d ++ [diag], n}
-        end
-      end)
+  defp reduce_skill_source(source, acc) do
+    source
+    |> skill_source_files()
+    |> Enum.reduce(acc, fn file, inner_acc ->
+      file
+      |> load_skill_file(source)
+      |> merge_resource_result(:skill, file, source, inner_acc)
     end)
-    |> then(fn {skills, diagnostics, _} -> {skills, diagnostics} end)
+  end
+
+  defp skill_source_files(%{path: path}) do
+    cond do
+      not File.exists?(path) -> []
+      File.dir?(path) -> collect_skill_files(path)
+      String.ends_with?(path, ".md") -> [path]
+      true -> []
+    end
   end
 
   defp load_skill_file(file, source) do
-    with {:ok, raw} <- File.read(file) do
-      {frontmatter, body} = split_frontmatter(raw)
-      base_dir = Path.dirname(file)
-      default_name = Path.basename(base_dir)
-      name = Map.get(frontmatter, "name") || default_name
-      description = Map.get(frontmatter, "description")
+    case File.read(file) do
+      {:ok, raw} ->
+        build_skill_from_raw(raw, file, source)
 
-      cond do
-        is_nil(description) or String.trim(description) == "" ->
-          {:error, "skill description is required"}
-
-        true ->
-          {:ok,
-           %Skill{
-             name: name,
-             description: description,
-             body: body,
-             source: source.source,
-             file_path: file,
-             base_dir: base_dir,
-             location: source.location,
-             disable_model_invocation: parse_bool(Map.get(frontmatter, "disable-model-invocation"))
-           }}
-      end
-    else
-      {:error, reason} -> {:error, "failed to read skill file: #{inspect(reason)}"}
+      {:error, reason} ->
+        {:error, "failed to read skill file: #{inspect(reason)}"}
     end
   end
+
+  defp build_skill_from_raw(raw, file, source) do
+    {frontmatter, body} = split_frontmatter(raw)
+    base_dir = Path.dirname(file)
+    name = Map.get(frontmatter, "name") || Path.basename(base_dir)
+    description = Map.get(frontmatter, "description")
+
+    if is_nil(description) or String.trim(description) == "" do
+      {:error, "skill description is required"}
+    else
+      {:ok,
+       %Skill{
+         name: name,
+         description: description,
+         body: body,
+         source: source.source,
+         file_path: file,
+         base_dir: base_dir,
+         location: source.location,
+         disable_model_invocation: parse_bool(Map.get(frontmatter, "disable-model-invocation"))
+       }}
+    end
+  end
+
+  defp merge_resource_result({:ok, resource}, kind, file, source, {items, diagnostics, names}) do
+    if MapSet.member?(names, resource.name) do
+      {items, diagnostics ++ [collision_diagnostic(kind, resource.name, file, source)], names}
+    else
+      {items ++ [resource], diagnostics, MapSet.put(names, resource.name)}
+    end
+  end
+
+  defp merge_resource_result({:error, reason}, _kind, file, source, {items, diagnostics, names}) do
+    {items, diagnostics ++ [warning_diagnostic(reason, file, source)], names}
+  end
+
+  defp collision_diagnostic(:prompt, name, file, source) do
+    %ResourceDiagnostic{
+      severity: :collision,
+      message: "prompt name collision: /#{name}",
+      path: file,
+      source: Atom.to_string(source.source)
+    }
+  end
+
+  defp collision_diagnostic(:skill, name, file, source) do
+    %ResourceDiagnostic{
+      severity: :collision,
+      message: "skill name collision: #{name}",
+      path: file,
+      source: Atom.to_string(source.source)
+    }
+  end
+
+  defp warning_diagnostic(reason, file, source) do
+    %ResourceDiagnostic{
+      severity: :warning,
+      message: reason,
+      path: file,
+      source: Atom.to_string(source.source)
+    }
+  end
+
+  defp finalize_resource_accumulator({resources, diagnostics, _names}), do: {resources, diagnostics}
 
   defp collect_skill_files(dir) do
     do_collect_skill_files(dir, true)

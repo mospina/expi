@@ -439,46 +439,51 @@ defmodule Expi.Session.Manager do
   def build_session_context_from_entries(entries, leaf_id \\ nil, by_id \\ nil) do
     by_id = by_id || Map.new(entries, fn e -> {Map.get(e, :id), e} end)
 
-    leaf =
-      cond do
-        leaf_id == nil -> List.last(entries)
-        true -> Map.get(by_id, leaf_id)
-      end
+    case find_leaf(entries, by_id, leaf_id) do
+      nil ->
+        %{messages: [], thinking_level: "off", model: nil}
 
-    if is_nil(leaf) do
-      %{messages: [], thinking_level: "off", model: nil}
-    else
-      path = unwind_branch(by_id, Map.get(leaf, :id), [])
+      leaf ->
+        path = unwind_branch(by_id, Map.get(leaf, :id), [])
+        {thinking_level, model, compaction} = reduce_context_meta(path)
+        messages = build_messages_from_path(path, compaction)
+        %{messages: messages, thinking_level: thinking_level, model: model}
+    end
+  end
 
-      {thinking_level, model, compaction} =
-        Enum.reduce(path, {"off", nil, nil}, fn entry, {lvl, mdl, comp} ->
-          case Map.get(entry, :type) do
-            :thinking_level_change ->
-              {Map.get(entry, :thinkingLevel, lvl), mdl, comp}
+  defp find_leaf(entries, _by_id, nil), do: List.last(entries)
+  defp find_leaf(_entries, by_id, leaf_id), do: Map.get(by_id, leaf_id)
 
-            :model_change ->
-              {lvl, %{provider: Map.get(entry, :provider), model_id: Map.get(entry, :modelId)},
-               comp}
+  defp reduce_context_meta(path) do
+    Enum.reduce(path, {"off", nil, nil}, fn entry, acc -> reduce_context_entry(entry, acc) end)
+  end
 
-            :message ->
-              case Map.get(entry, :message) do
-                %{role: :assistant, provider: provider, model: model_id} ->
-                  {lvl, %{provider: provider, model_id: model_id}, comp}
+  defp reduce_context_entry(entry, {lvl, mdl, comp}) do
+    case Map.get(entry, :type) do
+      :thinking_level_change ->
+        {Map.get(entry, :thinkingLevel, lvl), mdl, comp}
 
-                _ ->
-                  {lvl, mdl, comp}
-              end
+      :model_change ->
+        {lvl, %{provider: Map.get(entry, :provider), model_id: Map.get(entry, :modelId)}, comp}
 
-            :compaction ->
-              {lvl, mdl, entry}
+      :message ->
+        update_model_from_message(entry, {lvl, mdl, comp})
 
-            _ ->
-              {lvl, mdl, comp}
-          end
-        end)
+      :compaction ->
+        {lvl, mdl, entry}
 
-      messages = build_messages_from_path(path, compaction)
-      %{messages: messages, thinking_level: thinking_level, model: model}
+      _ ->
+        {lvl, mdl, comp}
+    end
+  end
+
+  defp update_model_from_message(entry, {lvl, mdl, comp}) do
+    case Map.get(entry, :message) do
+      %{role: :assistant, provider: provider, model: model_id} ->
+        {lvl, %{provider: provider, model_id: model_id}, comp}
+
+      _ ->
+        {lvl, mdl, comp}
     end
   end
 
@@ -557,28 +562,29 @@ defmodule Expi.Session.Manager do
     {by_id, labels_by_id, leaf_id} =
       manager.file_entries
       |> Enum.reject(&(Map.get(&1, :type) == :session))
-      |> Enum.reduce({%{}, %{}, nil}, fn entry, {idx, labels, _leaf} ->
-        id = Map.get(entry, :id)
-
-        labels =
-          if Map.get(entry, :type) == :label do
-            label = Map.get(entry, :label)
-            target = Map.get(entry, :targetId)
-
-            if is_binary(label) and String.trim(label) != "" do
-              Map.put(labels, target, label)
-            else
-              Map.delete(labels, target)
-            end
-          else
-            labels
-          end
-
-        {Map.put(idx, id, entry), labels, id}
-      end)
+      |> Enum.reduce({%{}, %{}, nil}, &reduce_index_entry/2)
 
     %__MODULE__{manager | by_id: by_id, labels_by_id: labels_by_id, leaf_id: leaf_id}
   end
+
+  defp reduce_index_entry(entry, {idx, labels, _leaf}) do
+    id = Map.get(entry, :id)
+    updated_labels = maybe_update_label_index(labels, entry)
+    {Map.put(idx, id, entry), updated_labels, id}
+  end
+
+  defp maybe_update_label_index(labels, %{type: :label} = entry) do
+    label = Map.get(entry, :label)
+    target = Map.get(entry, :targetId)
+
+    if is_binary(label) and String.trim(label) != "" do
+      Map.put(labels, target, label)
+    else
+      Map.delete(labels, target)
+    end
+  end
+
+  defp maybe_update_label_index(labels, _entry), do: labels
 
   defp decode_entry(line) do
     case Jason.decode(line, keys: :atoms) do
@@ -604,22 +610,22 @@ defmodule Expi.Session.Manager do
   defp valid_session_file?(path) do
     case File.open(path, [:read]) do
       {:ok, io} ->
-        line = IO.read(io, :line)
-        File.close(io)
-
-        case line do
-          :eof ->
-            false
-
-          data ->
-            case Jason.decode(String.trim(data), keys: :atoms) do
-              {:ok, %{type: :session, id: id}} when is_binary(id) -> true
-              _ -> false
-            end
-        end
+        io
+        |> IO.read(:line)
+        |> valid_session_header_line?()
+        |> tap(fn _ -> File.close(io) end)
 
       _ ->
         false
+    end
+  end
+
+  defp valid_session_header_line?(:eof), do: false
+
+  defp valid_session_header_line?(data) do
+    case Jason.decode(String.trim(data), keys: :atoms) do
+      {:ok, %{type: :session, id: id}} when is_binary(id) -> true
+      _ -> false
     end
   end
 

@@ -105,53 +105,45 @@ defmodule Expi.Agent.Steering do
   """
   @spec should_process_steering(AgentState.t(), [Message.t()], steering_options()) ::
           steering_decision()
-  def should_process_steering(agent_state, steering_messages, options \\ []) do
-    if steering_messages == [] do
-      :ignore
-    else
-      context = build_processing_context(agent_state)
-      interrupt_tools = Keyword.get(options, :interrupt_tools, false)
-      max_per_turn = Keyword.get(options, :max_steering_per_turn, 5)
+  def should_process_steering(_agent_state, [], _options), do: :ignore
 
-      cond do
-        # Check if we've exceeded steering limit for this turn
-        length(steering_messages) > max_per_turn ->
-          Logger.warning("Too many steering messages in turn", %{
-            count: length(steering_messages),
-            max: max_per_turn
-          })
+  def should_process_steering(agent_state, steering_messages, options) do
+    context = build_processing_context(agent_state)
+    interrupt_tools = Keyword.get(options, :interrupt_tools, false)
+    max_per_turn = Keyword.get(options, :max_steering_per_turn, 5)
 
-          :defer
+    cond do
+      too_many_steering_messages?(steering_messages, max_per_turn) ->
+        :defer
 
-        # If agent is idle, process immediately
-        not context.current_turn_active and not context.tools_executing ->
-          :process_now
+      not context.current_turn_active and not context.tools_executing ->
+        :process_now
 
-        # If tools are executing and interruption is allowed
-        context.tools_executing and interrupt_tools ->
-          Logger.debug("Interrupting tool execution for steering")
-          :process_now
+      context.tools_executing and interrupt_tools ->
+        Logger.debug("Interrupting tool execution for steering")
+        :process_now
 
-        # If tools are executing but interruption not allowed
-        context.tools_executing and not interrupt_tools ->
-          :process_after_tools
+      context.tools_executing ->
+        :process_after_tools
 
-        # If turn is active but no tools executing
-        context.current_turn_active and not context.tools_executing ->
-          # Check message urgency/priority
-          if has_urgent_steering?(steering_messages) do
-            :process_now
-          else
-            :process_after_tools
-          end
+      context.current_turn_active ->
+        if has_urgent_steering?(steering_messages), do: :process_now, else: :process_after_tools
 
-        # Default case - process as soon as possible
-        true ->
-          :process_now
-      end
+      true ->
+        :process_now
     end
   end
 
+  defp too_many_steering_messages?(steering_messages, max_per_turn) do
+    count = length(steering_messages)
+
+    if count > max_per_turn do
+      Logger.warning("Too many steering messages in turn", %{count: count, max: max_per_turn})
+      true
+    else
+      false
+    end
+  end
   @doc """
   Determines if follow-up messages should be processed.
 
@@ -187,54 +179,51 @@ defmodule Expi.Agent.Steering do
   """
   @spec should_process_follow_up(AgentState.t(), [Message.t()], follow_up_options()) ::
           follow_up_decision()
-  def should_process_follow_up(agent_state, follow_up_messages, options \\ []) do
-    if follow_up_messages == [] do
-      :ignore
-    else
-      context = build_processing_context(agent_state)
-      min_idle_time = Keyword.get(options, :min_idle_time_ms, 1000)
-      max_per_turn = Keyword.get(options, :max_follow_ups_per_turn, 3)
-      natural_break_detection = Keyword.get(options, :natural_break_detection, true)
+  def should_process_follow_up(_agent_state, [], _options), do: :ignore
 
-      cond do
-        # Check follow-up limit per turn
-        length(follow_up_messages) > max_per_turn ->
-          Logger.debug("Limiting follow-up messages per turn", %{
-            count: length(follow_up_messages),
-            max: max_per_turn
-          })
+  def should_process_follow_up(agent_state, follow_up_messages, options) do
+    context = build_processing_context(agent_state)
+    min_idle_time = Keyword.get(options, :min_idle_time_ms, 1000)
+    max_per_turn = Keyword.get(options, :max_follow_ups_per_turn, 3)
+    natural_break_detection = Keyword.get(options, :natural_break_detection, true)
 
-          :defer
+    cond do
+      too_many_follow_ups?(follow_up_messages, max_per_turn) ->
+        :defer
 
-        # If any critical work is happening, defer
-        context.current_turn_active or context.tools_executing ->
-          :defer_until_complete
+      context.current_turn_active or context.tools_executing ->
+        :defer_until_complete
 
-        # Check if enough idle time has passed
-        context.conversation_idle_time < min_idle_time ->
-          Logger.debug("Waiting for minimum idle time", %{
-            current_idle: context.conversation_idle_time,
-            min_required: min_idle_time
-          })
+      context.conversation_idle_time < min_idle_time ->
+        log_min_idle_wait(context.conversation_idle_time, min_idle_time)
+        :defer
 
-          :defer
+      natural_break_detection and not at_natural_break?(agent_state) ->
+        :defer
 
-        # Check for natural conversation breaks
-        natural_break_detection and not at_natural_break?(agent_state) ->
-          :defer
+      has_expired_follow_ups?(follow_up_messages) ->
+        Logger.debug("Some follow-up messages have expired")
+        :ignore
 
-        # Check if messages are too old
-        has_expired_follow_ups?(follow_up_messages) ->
-          Logger.debug("Some follow-up messages have expired")
-          :ignore
-
-        # Good time to process follow-ups
-        true ->
-          :process_now
-      end
+      true ->
+        :process_now
     end
   end
 
+  defp too_many_follow_ups?(follow_up_messages, max_per_turn) do
+    count = length(follow_up_messages)
+
+    if count > max_per_turn do
+      Logger.debug("Limiting follow-up messages per turn", %{count: count, max: max_per_turn})
+      true
+    else
+      false
+    end
+  end
+
+  defp log_min_idle_wait(current_idle, min_idle_time) do
+    Logger.debug("Waiting for minimum idle time", %{current_idle: current_idle, min_required: min_idle_time})
+  end
   @doc """
   Applies steering logic to determine message processing approach.
 

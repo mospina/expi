@@ -420,183 +420,189 @@ defmodule Expi.Agent.Turn do
   end
 
   @spec process_stream_event(map(), stream_state(), function() | nil) :: stream_state()
-  defp process_stream_event(event, stream_state, event_callback) do
-    case event.type do
-      :start ->
-        # Stream starting
-        # Provider events may include metadata in either `event.partial` or `event.message`,
-        # and some providers omit both.
-        source_message = event.partial || event.message
+  defp process_stream_event(%{type: :start} = event, stream_state, _event_callback),
+    do: handle_stream_start(event, stream_state)
 
-        updated_message = %{
-          stream_state.partial_message
-          | api: if(is_map(source_message), do: source_message.api, else: stream_state.partial_message.api),
-            provider:
-              if(is_map(source_message),
-                do: source_message.provider,
-                else: stream_state.partial_message.provider
-              ),
-            model:
-              if(is_map(source_message),
-                do: source_message.model,
-                else: stream_state.partial_message.model
-              ),
-            timestamp: System.system_time(:millisecond)
-        }
+  defp process_stream_event(%{type: :text_start} = event, stream_state, _event_callback),
+    do: handle_text_start(event, stream_state)
 
-        %{stream_state | partial_message: updated_message}
+  defp process_stream_event(%{type: :text_delta} = event, stream_state, event_callback),
+    do: handle_text_delta(event, stream_state, event_callback)
 
-      :text_start ->
-        # Text content block starting
-        index = event.content_index || 0
-        %{stream_state | block_types: Map.put(stream_state.block_types, index, :text)}
+  defp process_stream_event(%{type: :text_end} = event, stream_state, _event_callback),
+    do: handle_text_end(event, stream_state)
 
-      :text_delta ->
-        # Incremental text content
-        updated_buffer = stream_state.content_buffer <> event.delta
+  defp process_stream_event(%{type: :thinking_start} = event, stream_state, _event_callback),
+    do: handle_thinking_start(event, stream_state)
 
-        # Update partial message with text content
-        text_content = %{type: :text, text: updated_buffer}
+  defp process_stream_event(%{type: :thinking_delta} = event, stream_state, _event_callback),
+    do: handle_thinking_delta(event, stream_state)
 
-        updated_content = [
-          text_content
-          | Enum.reject(stream_state.partial_message.content, fn block ->
-              match?(%{type: :text}, block)
-            end)
-        ]
+  defp process_stream_event(%{type: :thinking_end}, stream_state, _event_callback), do: stream_state
 
-        updated_message = %{stream_state.partial_message | content: updated_content}
+  defp process_stream_event(%{type: :toolcall_start} = event, stream_state, _event_callback),
+    do: handle_toolcall_start(event, stream_state)
 
-        # Emit message update event
-        if event_callback do
-          update_event = %AgentEvent{
-            type: :message_update,
-            message: updated_message,
-            assistant_message_event: event
-          }
+  defp process_stream_event(%{type: :toolcall_delta} = event, stream_state, _event_callback),
+    do: handle_toolcall_delta(event, stream_state)
 
-          emit_event_if_callback(update_event, event_callback)
-        end
+  defp process_stream_event(%{type: :toolcall_end} = event, stream_state, _event_callback),
+    do: handle_toolcall_end(event, stream_state)
 
-        %{stream_state | content_buffer: updated_buffer, partial_message: updated_message}
+  defp process_stream_event(%{type: :done} = event, stream_state, _event_callback),
+    do: handle_stream_done(event, stream_state)
 
-      :text_end ->
-        # content_block_stop from Anthropic; dispatch by tracked block type
-        index = event.content_index || 0
+  defp process_stream_event(%{type: :error}, stream_state, _event_callback),
+    do: handle_stream_error(stream_state)
 
-        case Map.get(stream_state.block_types, index, :text) do
-          :toolcall ->
-            case finalize_tool_call_from_buffer(stream_state, index) do
-              {:ok, updated_state} -> %{updated_state | block_types: Map.delete(updated_state.block_types, index)}
-              :not_found -> %{stream_state | block_types: Map.delete(stream_state.block_types, index)}
-            end
+  defp process_stream_event(event, stream_state, _event_callback) do
+    Logger.debug("Unknown stream event type", %{type: event.type})
+    stream_state
+  end
 
-          _ ->
-            %{stream_state | block_types: Map.delete(stream_state.block_types, index)}
-        end
+  defp handle_stream_start(event, stream_state) do
+    source_message = event.partial || event.message
+    partial = stream_state.partial_message
 
-      :thinking_start ->
-        # Thinking/reasoning starting (Claude)
-        index = event.content_index || 0
-        %{stream_state | block_types: Map.put(stream_state.block_types, index, :thinking)}
+    updated_message = %{
+      partial
+      | api: if(is_map(source_message), do: source_message.api, else: partial.api),
+        provider: if(is_map(source_message), do: source_message.provider, else: partial.provider),
+        model: if(is_map(source_message), do: source_message.model, else: partial.model),
+        timestamp: System.system_time(:millisecond)
+    }
 
-      :thinking_delta ->
-        # Incremental thinking content
-        updated_thinking = stream_state.thinking_buffer <> event.delta
+    %{stream_state | partial_message: updated_message}
+  end
 
-        # Add thinking content to message
-        thinking_content = %{type: :thinking, thinking: updated_thinking}
+  defp handle_text_start(event, stream_state) do
+    index = event.content_index || 0
+    %{stream_state | block_types: Map.put(stream_state.block_types, index, :text)}
+  end
 
-        updated_content = [
-          thinking_content
-          | Enum.reject(stream_state.partial_message.content, fn block ->
-              match?(%{type: :thinking}, block)
-            end)
-        ]
+  defp handle_text_delta(event, stream_state, event_callback) do
+    updated_buffer = stream_state.content_buffer <> event.delta
+    text_content = %{type: :text, text: updated_buffer}
 
-        updated_message = %{stream_state.partial_message | content: updated_content}
+    updated_content =
+      [text_content | Enum.reject(stream_state.partial_message.content, &match?(%{type: :text}, &1))]
 
-        %{stream_state | thinking_buffer: updated_thinking, partial_message: updated_message}
+    updated_message = %{stream_state.partial_message | content: updated_content}
+    emit_message_update(updated_message, event, event_callback)
 
-      :thinking_end ->
-        # Thinking completed
-        stream_state
+    %{stream_state | content_buffer: updated_buffer, partial_message: updated_message}
+  end
 
-      :toolcall_start ->
-        # Tool call starting
-        index = event.content_index || 0
+  defp emit_message_update(_updated_message, _event, nil), do: :ok
 
-        tool_data =
-          if is_map(event.tool_call) do
-            %{
-              id: Map.get(event.tool_call, :id) || Map.get(event.tool_call, "id") || generate_tool_call_id(),
-              name: Map.get(event.tool_call, :name) || Map.get(event.tool_call, "name") || "unknown",
-              arguments: Map.get(event.tool_call, :arguments) || Map.get(event.tool_call, "arguments") || %{},
-              partial_json: ""
-            }
-          else
-            %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""}
+  defp emit_message_update(updated_message, event, event_callback) do
+    update_event = %AgentEvent{
+      type: :message_update,
+      message: updated_message,
+      assistant_message_event: event
+    }
+
+    emit_event_if_callback(update_event, event_callback)
+  end
+
+  defp handle_text_end(event, stream_state) do
+    index = event.content_index || 0
+
+    updated_state =
+      case Map.get(stream_state.block_types, index, :text) do
+        :toolcall ->
+          case finalize_tool_call_from_buffer(stream_state, index) do
+            {:ok, resolved} -> resolved
+            :not_found -> stream_state
           end
 
-        %{
+        _ ->
           stream_state
-          | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, tool_data),
-            block_types: Map.put(stream_state.block_types, index, :toolcall)
-        }
+      end
 
-      :toolcall_delta ->
-        # Incremental tool call data
-        index = event.content_index || 0
-        existing = Map.get(stream_state.tool_calls_buffer, index, %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""})
-        delta = if is_binary(event.delta), do: event.delta, else: ""
-        updated = %{existing | partial_json: existing.partial_json <> delta}
+    %{updated_state | block_types: Map.delete(updated_state.block_types, index)}
+  end
 
-        %{stream_state | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, updated)}
+  defp handle_thinking_start(event, stream_state) do
+    index = event.content_index || 0
+    %{stream_state | block_types: Map.put(stream_state.block_types, index, :thinking)}
+  end
 
-      :toolcall_end ->
-        # Tool call completed
-        if is_map(event.tool_call) do
-          add_tool_call_content(stream_state, event.tool_call)
-        else
-          case finalize_tool_call_from_buffer(stream_state, event.content_index) do
-            {:ok, updated_state} -> updated_state
-            :not_found ->
-              Logger.warning("toolcall_end event missing tool_call payload")
-              stream_state
-          end
-        end
+  defp handle_thinking_delta(event, stream_state) do
+    updated_thinking = stream_state.thinking_buffer <> event.delta
+    thinking_content = %{type: :thinking, thinking: updated_thinking}
 
-      :done ->
-        # Stream completed
-        final_message = %{
-          stream_state.partial_message
-          | usage:
-              if(is_map(event.message),
-                do: event.message.usage,
-                else: stream_state.partial_message.usage
-              ),
-            stop_reason: event.reason,
-            timestamp: System.system_time(:millisecond)
-        }
+    updated_content =
+      [thinking_content | Enum.reject(stream_state.partial_message.content, &match?(%{type: :thinking}, &1))]
 
-        %{stream_state | partial_message: final_message}
+    updated_message = %{stream_state.partial_message | content: updated_content}
+    %{stream_state | thinking_buffer: updated_thinking, partial_message: updated_message}
+  end
 
-      :error ->
-        # Stream error
-        error_message = %{
-          stream_state.partial_message
-          | stop_reason: :error,
-            error_message: "Streaming error",
-            timestamp: System.system_time(:millisecond)
-        }
+  defp handle_toolcall_start(event, stream_state) do
+    index = event.content_index || 0
+    tool_data = build_tool_data(event.tool_call)
 
-        %{stream_state | partial_message: error_message}
+    %{
+      stream_state
+      | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, tool_data),
+        block_types: Map.put(stream_state.block_types, index, :toolcall)
+    }
+  end
 
-      _ ->
-        # Unknown event type
-        Logger.debug("Unknown stream event type", %{type: event.type})
-        stream_state
+  defp build_tool_data(tool_call) when is_map(tool_call) do
+    %{
+      id: Map.get(tool_call, :id) || Map.get(tool_call, "id") || generate_tool_call_id(),
+      name: Map.get(tool_call, :name) || Map.get(tool_call, "name") || "unknown",
+      arguments: Map.get(tool_call, :arguments) || Map.get(tool_call, "arguments") || %{},
+      partial_json: ""
+    }
+  end
+
+  defp build_tool_data(_), do: %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""}
+
+  defp handle_toolcall_delta(event, stream_state) do
+    index = event.content_index || 0
+    existing = Map.get(stream_state.tool_calls_buffer, index, build_tool_data(nil))
+    delta = if is_binary(event.delta), do: event.delta, else: ""
+    updated = %{existing | partial_json: existing.partial_json <> delta}
+
+    %{stream_state | tool_calls_buffer: Map.put(stream_state.tool_calls_buffer, index, updated)}
+  end
+
+  defp handle_toolcall_end(event, stream_state) do
+    if is_map(event.tool_call) do
+      add_tool_call_content(stream_state, event.tool_call)
+    else
+      case finalize_tool_call_from_buffer(stream_state, event.content_index) do
+        {:ok, updated_state} -> updated_state
+        :not_found ->
+          Logger.warning("toolcall_end event missing tool_call payload")
+          stream_state
+      end
     end
+  end
+
+  defp handle_stream_done(event, stream_state) do
+    final_message = %{
+      stream_state.partial_message
+      | usage: if(is_map(event.message), do: event.message.usage, else: stream_state.partial_message.usage),
+        stop_reason: event.reason,
+        timestamp: System.system_time(:millisecond)
+    }
+
+    %{stream_state | partial_message: final_message}
+  end
+
+  defp handle_stream_error(stream_state) do
+    error_message = %{
+      stream_state.partial_message
+      | stop_reason: :error,
+        error_message: "Streaming error",
+        timestamp: System.system_time(:millisecond)
+    }
+
+    %{stream_state | partial_message: error_message}
   end
 
   defp finalize_tool_call_from_buffer(stream_state, index) when is_integer(index) do

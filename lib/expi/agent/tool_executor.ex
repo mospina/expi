@@ -581,58 +581,48 @@ defmodule Expi.Agent.ToolExecutor do
          on_update,
          on_complete
        ) do
-    with :ok <- validate_execution_setup(tool_calls, available_tools) do
-      # Create tool call to tool mapping
-      tool_map =
-        available_tools
-        |> Enum.map(fn tool -> {AgentTool.name(tool), tool} end)
-        |> Map.new()
+    case validate_execution_setup(tool_calls, available_tools) do
+      :ok ->
+        tool_map =
+          available_tools
+          |> Enum.map(fn tool -> {AgentTool.name(tool), tool} end)
+          |> Map.new()
 
-      # Execute tools concurrently using Task.async_stream
-      results =
-        tool_calls
-        |> Task.async_stream(
-          fn tool_call ->
-            case Map.get(tool_map, tool_call.name) do
-              nil ->
-                {:error, {:tool_not_found, tool_call.name}}
+        results =
+          tool_calls
+          |> Task.async_stream(
+            fn tool_call ->
+              case Map.get(tool_map, tool_call.name) do
+                nil -> {:error, {:tool_not_found, tool_call.name}}
+                tool -> execute_single_tool(tool_call, tool, timeout: timeout, on_update: on_update)
+              end
+            end,
+            max_concurrency: max_concurrent,
+            timeout: timeout + 1000,
+            on_timeout: :kill_task
+          )
+          |> Enum.map(fn
+            {:ok, {:ok, result}} -> result
+            {:ok, {:error, reason}} -> create_error_result(reason, tool_calls)
+            {:exit, reason} -> create_crash_result(reason, tool_calls)
+          end)
 
-              tool ->
-                execute_single_tool(tool_call, tool,
-                  timeout: timeout,
-                  on_update: on_update
-                )
-            end
-          end,
-          max_concurrency: max_concurrent,
-          # Slightly longer than individual tool timeout
-          timeout: timeout + 1000,
-          on_timeout: :kill_task
-        )
-        |> Enum.map(fn
-          {:ok, {:ok, result}} -> result
-          {:ok, {:error, reason}} -> create_error_result(reason, tool_calls)
-          {:exit, reason} -> create_crash_result(reason, tool_calls)
-        end)
+        if on_complete, do: on_complete.(results)
 
-      if on_complete do
-        on_complete.(results)
-      end
+        :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
 
-      :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
+        Logger.debug("Concurrent execution completed", %{
+          execution_id: execution_id,
+          tool_count: length(results),
+          successful: Enum.count(results, fn r -> not r.is_error end)
+        })
 
-      Logger.debug("Concurrent execution completed", %{
-        execution_id: execution_id,
-        tool_count: length(results),
-        successful: Enum.count(results, fn r -> not r.is_error end)
-      })
+        {:ok, results}
 
-      {:ok, results}
-    else
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
-
   @spec execute_sequential(
           [ToolCall.t()],
           [AgentTool.t()],
@@ -649,42 +639,39 @@ defmodule Expi.Agent.ToolExecutor do
          on_update,
          on_complete
        ) do
-    with :ok <- validate_execution_setup(tool_calls, available_tools) do
-      tool_map =
-        available_tools
-        |> Enum.map(fn tool -> {AgentTool.name(tool), tool} end)
-        |> Map.new()
+    case validate_execution_setup(tool_calls, available_tools) do
+      :ok ->
+        tool_map =
+          available_tools
+          |> Enum.map(fn tool -> {AgentTool.name(tool), tool} end)
+          |> Map.new()
 
-      results =
-        Enum.map(tool_calls, fn tool_call ->
-          case Map.get(tool_map, tool_call.name) do
-            nil ->
-              create_error_result({:tool_not_found, tool_call.name}, [tool_call])
+        results =
+          Enum.map(tool_calls, fn tool_call ->
+            case Map.get(tool_map, tool_call.name) do
+              nil ->
+                create_error_result({:tool_not_found, tool_call.name}, [tool_call])
 
-            tool ->
-              case execute_single_tool(tool_call, tool,
-                     timeout: timeout,
-                     on_update: on_update
-                   ) do
-                {:ok, result} -> result
-              end
-          end
-        end)
+              tool ->
+                case execute_single_tool(tool_call, tool, timeout: timeout, on_update: on_update) do
+                  {:ok, result} -> result
+                end
+            end
+          end)
 
-      if on_complete do
-        on_complete.(results)
-      end
+        if on_complete, do: on_complete.(results)
 
-      :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
+        :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
 
-      Logger.debug("Sequential execution completed", %{
-        execution_id: execution_id,
-        tool_count: length(results)
-      })
+        Logger.debug("Sequential execution completed", %{
+          execution_id: execution_id,
+          tool_count: length(results)
+        })
 
-      {:ok, results}
-    else
-      {:error, reason} -> {:error, reason}
+        {:ok, results}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

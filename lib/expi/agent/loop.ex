@@ -394,38 +394,48 @@ defmodule Expi.Agent.Loop do
           {:ok, loop_state()} | {:error, any()}
   defp outer_loop(loop_state, max_turns, event_callback) do
     cond do
-      # Check turn limit
-      max_turns != :unlimited and loop_state.current_turn >= max_turns ->
+      turn_limit_reached?(loop_state, max_turns) ->
         Logger.debug("Turn limit reached", %{max_turns: max_turns})
         {:ok, loop_state}
 
-      # Check if we should continue
-      not should_continue?(loop_state) and length(loop_state.message_queue.follow_up) == 0 ->
+      no_remaining_work?(loop_state) ->
         Logger.debug("No more work to do")
         {:ok, loop_state}
 
       true ->
-        # Execute inner loop for current work
-        case inner_loop(loop_state, event_callback) do
-          {:ok, updated_loop_state} ->
-            # Check for follow-up messages
-            case process_follow_up_messages(updated_loop_state) do
-              {new_loop_state, true} ->
-                # More follow-up messages to process
-                outer_loop(new_loop_state, max_turns, event_callback)
+        continue_outer_loop(loop_state, max_turns, event_callback)
+    end
+  end
 
-              {final_loop_state, false} ->
-                # No follow-up queue items; continue if loop conditions still require work
-                if should_continue?(final_loop_state) do
-                  outer_loop(final_loop_state, max_turns, event_callback)
-                else
-                  {:ok, final_loop_state}
-                end
-            end
+  defp turn_limit_reached?(loop_state, max_turns) do
+    max_turns != :unlimited and loop_state.current_turn >= max_turns
+  end
 
-          {:error, reason} = error ->
-            Logger.error("Inner loop failed", %{reason: inspect(reason)})
-            error
+  defp no_remaining_work?(loop_state) do
+    not should_continue?(loop_state) and Enum.empty?(loop_state.message_queue.follow_up)
+  end
+
+  defp continue_outer_loop(loop_state, max_turns, event_callback) do
+    case inner_loop(loop_state, event_callback) do
+      {:ok, updated_loop_state} ->
+        route_post_turn(updated_loop_state, max_turns, event_callback)
+
+      {:error, reason} = error ->
+        Logger.error("Inner loop failed", %{reason: inspect(reason)})
+        error
+    end
+  end
+
+  defp route_post_turn(updated_loop_state, max_turns, event_callback) do
+    case process_follow_up_messages(updated_loop_state) do
+      {new_loop_state, true} ->
+        outer_loop(new_loop_state, max_turns, event_callback)
+
+      {final_loop_state, false} ->
+        if should_continue?(final_loop_state) do
+          outer_loop(final_loop_state, max_turns, event_callback)
+        else
+          {:ok, final_loop_state}
         end
     end
   end
@@ -634,83 +644,94 @@ defmodule Expi.Agent.Loop do
   @spec execute_pending_tools(loop_state(), function() | nil) ::
           {:ok, loop_state()} | {:error, any()}
   defp execute_pending_tools(loop_state, event_callback) do
-    # Get the last assistant message to extract tool calls
     messages = State.get_messages(loop_state.agent_state)
 
     case get_latest_assistant_message_with_tools(messages) do
       {:ok, assistant_message} ->
-        tool_calls = extract_tool_calls(assistant_message)
-        available_tools = State.get_tools(loop_state.agent_state)
-
-        # Set up event callback for tool execution
-        tool_callback =
-          if event_callback do
-            fn event -> event_callback.(event) end
-          else
-            nil
-          end
-
-        # Execute tools
-        tool_strategy = Map.get(loop_state.options, :tool_execution_strategy, :sequential)
-        tool_timeout = Map.get(loop_state.options, :tool_timeout)
-        max_concurrent = Map.get(loop_state.options, :tool_max_concurrent)
-
-        if tool_strategy == :sequential do
-          {results, _remaining, executed_count} =
-            execute_tools_with_steering_interrupt(
-              tool_calls,
-              available_tools,
-              tool_timeout,
-              tool_callback,
-              loop_state.agent_state
-            )
-
-          updated_agent_state = State.add_messages(loop_state.agent_state, results)
-
-          cleared_agent_state =
-            Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
-              State.remove_pending_tool_call(state, tool_call.id)
-            end)
-
-          {:ok,
-           %{
-             loop_state
-             | agent_state: cleared_agent_state,
-               tool_calls_executed: loop_state.tool_calls_executed + executed_count
-           }}
-        else
-          tool_exec_opts =
-            [on_complete: tool_callback, strategy: tool_strategy]
-            |> maybe_put_opt(:timeout, tool_timeout)
-            |> maybe_put_opt(:max_concurrent, max_concurrent)
-
-          case ToolExecutor.execute_tools_concurrent(tool_calls, available_tools, tool_exec_opts) do
-            {:ok, tool_results} ->
-              updated_agent_state = State.add_messages(loop_state.agent_state, tool_results)
-
-              cleared_agent_state =
-                Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
-                  State.remove_pending_tool_call(state, tool_call.id)
-                end)
-
-              updated_loop_state = %{
-                loop_state
-                | agent_state: cleared_agent_state,
-                  tool_calls_executed: loop_state.tool_calls_executed + length(tool_calls)
-              }
-
-              {:ok, updated_loop_state}
-
-            {:error, reason} = error ->
-              Logger.error("Tool execution failed", %{reason: inspect(reason)})
-              error
-          end
-        end
+        run_tool_execution(loop_state, assistant_message, event_callback)
 
       {:error, reason} = error ->
         Logger.error("Could not find assistant message with tools", %{reason: reason})
         error
     end
+  end
+
+  defp run_tool_execution(loop_state, assistant_message, event_callback) do
+    tool_calls = extract_tool_calls(assistant_message)
+    available_tools = State.get_tools(loop_state.agent_state)
+    tool_callback = if(event_callback, do: fn event -> event_callback.(event) end, else: nil)
+
+    tool_strategy = Map.get(loop_state.options, :tool_execution_strategy, :sequential)
+    tool_timeout = Map.get(loop_state.options, :tool_timeout)
+    max_concurrent = Map.get(loop_state.options, :tool_max_concurrent)
+
+    case tool_strategy do
+      :sequential ->
+        execute_tools_sequentially(loop_state, tool_calls, available_tools, tool_timeout, tool_callback)
+
+      _ ->
+        execute_tools_concurrently(
+          loop_state,
+          tool_calls,
+          available_tools,
+          tool_timeout,
+          max_concurrent,
+          tool_callback,
+          tool_strategy
+        )
+    end
+  end
+
+  defp execute_tools_sequentially(loop_state, tool_calls, available_tools, tool_timeout, tool_callback) do
+    {results, _remaining, executed_count} =
+      execute_tools_with_steering_interrupt(
+        tool_calls,
+        available_tools,
+        tool_timeout,
+        tool_callback,
+        loop_state.agent_state
+      )
+
+    {:ok, apply_tool_results(loop_state, tool_calls, results, executed_count)}
+  end
+
+  defp execute_tools_concurrently(
+         loop_state,
+         tool_calls,
+         available_tools,
+         tool_timeout,
+         max_concurrent,
+         tool_callback,
+         tool_strategy
+       ) do
+    tool_exec_opts =
+      [on_complete: tool_callback, strategy: tool_strategy]
+      |> maybe_put_opt(:timeout, tool_timeout)
+      |> maybe_put_opt(:max_concurrent, max_concurrent)
+
+    case ToolExecutor.execute_tools_concurrent(tool_calls, available_tools, tool_exec_opts) do
+      {:ok, tool_results} ->
+        {:ok, apply_tool_results(loop_state, tool_calls, tool_results, length(tool_calls))}
+
+      {:error, reason} = error ->
+        Logger.error("Tool execution failed", %{reason: inspect(reason)})
+        error
+    end
+  end
+
+  defp apply_tool_results(loop_state, tool_calls, results, executed_count) do
+    updated_agent_state = State.add_messages(loop_state.agent_state, results)
+
+    cleared_agent_state =
+      Enum.reduce(tool_calls, updated_agent_state, fn tool_call, state ->
+        State.remove_pending_tool_call(state, tool_call.id)
+      end)
+
+    %{
+      loop_state
+      | agent_state: cleared_agent_state,
+        tool_calls_executed: loop_state.tool_calls_executed + executed_count
+    }
   end
 
   @spec get_latest_assistant_message_with_tools([Expi.Agent.Message.t()]) ::
@@ -777,43 +798,36 @@ defmodule Expi.Agent.Loop do
       |> Map.new()
 
     Enum.reduce_while(Enum.with_index(tool_calls), {[], tool_calls, 0}, fn {tool_call, idx}, {acc, _remaining, executed} ->
-      steering_queue = Map.get(agent_state, :steering_queue, [])
-
-      if idx > 0 and length(steering_queue) > 0 do
-        skipped =
-          tool_calls
-          |> Enum.drop(idx)
-          |> Enum.map(&skipped_tool_result/1)
-
+      if should_interrupt_for_steering?(agent_state, idx) do
+        skipped = tool_calls |> Enum.drop(idx) |> Enum.map(&skipped_tool_result/1)
         {:halt, {acc ++ skipped, [], executed}}
       else
-        result =
-          case Map.get(tool_map, tool_call.name) do
-            nil -> skipped_tool_result(tool_call)
-            tool ->
-              exec_opts =
-                []
-                |> maybe_put_opt(:timeout, tool_timeout)
-                |> Keyword.put(:on_update, nil)
-
-              {:ok, tool_result} =
-                ToolExecutor.execute_single_tool(
-                  tool_call,
-                  tool,
-                  exec_opts
-                )
-
-              if is_function(tool_callback) do
-                tool_callback.(tool_result)
-              end
-
-              tool_result
-          end
-
+        result = execute_one_tool_call(tool_call, tool_map, tool_timeout, tool_callback)
         {:cont, {acc ++ [result], Enum.drop(tool_calls, idx + 1), executed + 1}}
       end
     end)
   end
+
+  defp should_interrupt_for_steering?(agent_state, idx) do
+    steering_queue = Map.get(agent_state, :steering_queue, [])
+    idx > 0 and not Enum.empty?(steering_queue)
+  end
+
+  defp execute_one_tool_call(tool_call, tool_map, tool_timeout, tool_callback) do
+    case Map.get(tool_map, tool_call.name) do
+      nil ->
+        skipped_tool_result(tool_call)
+
+      tool ->
+        exec_opts = [] |> maybe_put_opt(:timeout, tool_timeout) |> Keyword.put(:on_update, nil)
+        {:ok, tool_result} = ToolExecutor.execute_single_tool(tool_call, tool, exec_opts)
+        maybe_emit_tool_callback(tool_callback, tool_result)
+        tool_result
+    end
+  end
+
+  defp maybe_emit_tool_callback(callback, tool_result) when is_function(callback), do: callback.(tool_result)
+  defp maybe_emit_tool_callback(_callback, _tool_result), do: :ok
 
   defp skipped_tool_result(tool_call) do
     %Expi.Types.ToolResultMessage{

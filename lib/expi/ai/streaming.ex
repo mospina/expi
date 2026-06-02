@@ -234,93 +234,61 @@ defmodule Expi.AI.Streaming do
   @spec standardize_event(map(), String.t()) :: AssistantMessageEvent.t() | nil
   def standardize_event(event_data, "anthropic") do
     log_anthropic_event(event_data)
+    standardize_anthropic_event(event_data)
+  end
 
-    case event_data do
-      %{"type" => "message_start"} ->
-        %AssistantMessageEvent{type: :start}
+  defp standardize_anthropic_event(%{"type" => "message_start"}) do
+    %AssistantMessageEvent{type: :start}
+  end
 
-      %{"type" => "content_block_start", "content_block" => block} = data ->
-        index = Map.get(data, "index")
+  defp standardize_anthropic_event(%{"type" => "content_block_start", "content_block" => block} = data) do
+    index = Map.get(data, "index")
 
-        case block["type"] do
-          "text" ->
-            %AssistantMessageEvent{type: :text_start, content_index: index}
-
-          "thinking" ->
-            %AssistantMessageEvent{type: :thinking_start, content_index: index}
-
-          "tool_use" ->
-            %AssistantMessageEvent{
-              type: :toolcall_start,
-              content_index: index,
-              tool_call: %ToolCall{
-                type: :tool_call,
-                id: block["id"] || "",
-                name: block["name"] || "",
-                arguments: block["input"] || %{}
-              }
-            }
-        end
-
-      %{"type" => "content_block_delta", "delta" => delta, "index" => index} ->
-        case delta["type"] do
-          "text_delta" ->
-            %AssistantMessageEvent{
-              type: :text_delta,
-              content_index: index,
-              delta: delta["text"]
-            }
-
-          "thinking_delta" ->
-            %AssistantMessageEvent{
-              type: :thinking_delta,
-              content_index: index,
-              delta: delta["thinking"]
-            }
-
-          "input_json_delta" ->
-            %AssistantMessageEvent{
-              type: :toolcall_delta,
-              content_index: index,
-              delta: delta["partial_json"]
-            }
-
-          _ ->
-            nil
-        end
-
-      %{"type" => "content_block_stop", "index" => index} = stop_event ->
-        case get_in(stop_event, ["content_block", "type"]) do
-          "thinking" -> %AssistantMessageEvent{type: :thinking_end, content_index: index}
-          "tool_use" -> %AssistantMessageEvent{type: :toolcall_end, content_index: index}
-          _ -> %AssistantMessageEvent{type: :text_end, content_index: index}
-        end
-
-      %{"type" => "message_delta", "delta" => delta} ->
-        case delta do
-          %{"stop_reason" => stop_reason} ->
-            %AssistantMessageEvent{
-              type: :done,
-              reason: parse_anthropic_stop_reason(stop_reason)
-            }
-
-          _ ->
-            nil
-        end
-
-      %{"type" => "message_stop"} ->
-        %AssistantMessageEvent{type: :done}
-
-      %{"type" => "error", "error" => error} ->
+    case block["type"] do
+      "text" -> %AssistantMessageEvent{type: :text_start, content_index: index}
+      "thinking" -> %AssistantMessageEvent{type: :thinking_start, content_index: index}
+      "tool_use" ->
         %AssistantMessageEvent{
-          type: :error,
-          error: %{message: error["message"], type: error["type"]}
+          type: :toolcall_start,
+          content_index: index,
+          tool_call: %ToolCall{
+            type: :tool_call,
+            id: block["id"] || "",
+            name: block["name"] || "",
+            arguments: block["input"] || %{}
+          }
         }
-
-      _ ->
-        nil
     end
   end
+
+  defp standardize_anthropic_event(%{"type" => "content_block_delta", "delta" => delta, "index" => index}) do
+    case delta["type"] do
+      "text_delta" -> %AssistantMessageEvent{type: :text_delta, content_index: index, delta: delta["text"]}
+      "thinking_delta" -> %AssistantMessageEvent{type: :thinking_delta, content_index: index, delta: delta["thinking"]}
+      "input_json_delta" -> %AssistantMessageEvent{type: :toolcall_delta, content_index: index, delta: delta["partial_json"]}
+      _ -> nil
+    end
+  end
+
+  defp standardize_anthropic_event(%{"type" => "content_block_stop", "index" => index} = stop_event) do
+    case get_in(stop_event, ["content_block", "type"]) do
+      "thinking" -> %AssistantMessageEvent{type: :thinking_end, content_index: index}
+      "tool_use" -> %AssistantMessageEvent{type: :toolcall_end, content_index: index}
+      _ -> %AssistantMessageEvent{type: :text_end, content_index: index}
+    end
+  end
+
+  defp standardize_anthropic_event(%{"type" => "message_delta", "delta" => %{"stop_reason" => stop_reason}}) do
+    %AssistantMessageEvent{type: :done, reason: parse_anthropic_stop_reason(stop_reason)}
+  end
+
+  defp standardize_anthropic_event(%{"type" => "message_stop"}), do: %AssistantMessageEvent{type: :done}
+
+  defp standardize_anthropic_event(%{"type" => "error", "error" => error}) do
+    %AssistantMessageEvent{type: :error, error: %{message: error["message"], type: error["type"]}}
+  end
+
+  defp standardize_anthropic_event(_), do: nil
 
   defp log_anthropic_event(%{"type" => type} = data) do
     summary = %{
@@ -336,85 +304,51 @@ defmodule Expi.AI.Streaming do
 
   defp log_anthropic_event(_), do: :ok
 
-  def standardize_event(event_data, "google") do
-    # Gemini uses different streaming format
-    case event_data do
-      %{"candidates" => [candidate | _]} ->
-        case candidate do
-          %{"content" => %{"parts" => [%{"text" => text}]}} ->
-            %AssistantMessageEvent{
-              type: :text_delta,
-              content_index: 0,
-              delta: text
-            }
+  def standardize_event(event_data, "google"), do: standardize_google_event(event_data)
+  def standardize_event(event_data, "ollama"), do: standardize_ollama_event(event_data)
 
-          %{"finishReason" => reason} ->
-            %AssistantMessageEvent{
-              type: :done,
-              reason: parse_gemini_stop_reason(reason)
-            }
+  defp standardize_google_event(%{"candidates" => [candidate | _]}), do: standardize_google_candidate(candidate)
 
-          _ ->
-            nil
-        end
-
-      %{"error" => error} ->
-        %AssistantMessageEvent{
-          type: :error,
-          error: %{message: error["message"], code: error["code"]}
-        }
-
-      _ ->
-        nil
-    end
+  defp standardize_google_event(%{"error" => error}) do
+    %AssistantMessageEvent{type: :error, error: %{message: error["message"], code: error["code"]}}
   end
 
-  def standardize_event(event_data, "ollama") do
-    # Ollama uses OpenAI-compatible streaming
-    case event_data do
-      %{"choices" => [choice | _]} ->
-        # Check for finish_reason first
-        case choice do
-          %{"finish_reason" => reason} when not is_nil(reason) ->
-            %AssistantMessageEvent{
-              type: :done,
-              reason: parse_ollama_stop_reason(reason)
-            }
+  defp standardize_google_event(_), do: nil
 
-          %{"delta" => delta} ->
-            case delta do
-              %{"content" => content} when is_binary(content) ->
-                %AssistantMessageEvent{
-                  type: :text_delta,
-                  content_index: 0,
-                  delta: content
-                }
-
-              %{"tool_calls" => tool_calls} ->
-                %AssistantMessageEvent{
-                  type: :toolcall_delta,
-                  content_index: 0,
-                  tool_call: parse_tool_call_delta(tool_calls)
-                }
-
-              _ ->
-                nil
-            end
-
-          _ ->
-            nil
-        end
-
-      %{"error" => error} ->
-        %AssistantMessageEvent{
-          type: :error,
-          error: %{message: error["message"], type: error["type"]}
-        }
-
-      _ ->
-        nil
-    end
+  defp standardize_google_candidate(%{"content" => %{"parts" => [%{"text" => text}]}}) do
+    %AssistantMessageEvent{type: :text_delta, content_index: 0, delta: text}
   end
+
+  defp standardize_google_candidate(%{"finishReason" => reason}) do
+    %AssistantMessageEvent{type: :done, reason: parse_gemini_stop_reason(reason)}
+  end
+
+  defp standardize_google_candidate(_), do: nil
+
+  defp standardize_ollama_event(%{"choices" => [choice | _]}), do: standardize_ollama_choice(choice)
+
+  defp standardize_ollama_event(%{"error" => error}) do
+    %AssistantMessageEvent{type: :error, error: %{message: error["message"], type: error["type"]}}
+  end
+
+  defp standardize_ollama_event(_), do: nil
+
+  defp standardize_ollama_choice(%{"finish_reason" => reason}) when not is_nil(reason) do
+    %AssistantMessageEvent{type: :done, reason: parse_ollama_stop_reason(reason)}
+  end
+
+  defp standardize_ollama_choice(%{"delta" => delta}), do: standardize_ollama_delta(delta)
+  defp standardize_ollama_choice(_), do: nil
+
+  defp standardize_ollama_delta(%{"content" => content}) when is_binary(content) do
+    %AssistantMessageEvent{type: :text_delta, content_index: 0, delta: content}
+  end
+
+  defp standardize_ollama_delta(%{"tool_calls" => tool_calls}) do
+    %AssistantMessageEvent{type: :toolcall_delta, content_index: 0, tool_call: parse_tool_call_delta(tool_calls)}
+  end
+
+  defp standardize_ollama_delta(_), do: nil
 
   # Helper functions for stop reason parsing
   defp parse_anthropic_stop_reason("end_turn"), do: :stop
@@ -543,97 +477,71 @@ defmodule Expi.AI.Streaming do
   # Converts SSE event data to AssistantMessageEvent format.
   @spec convert_sse_to_assistant_event(map(), String.t(), String.t()) ::
           AssistantMessageEvent.t() | nil
-  defp convert_sse_to_assistant_event(sse_event, provider, model_id) do
-    timestamp = System.system_time(:millisecond)
-
-    case sse_event do
-      %{"event" => "start"} ->
-        %AssistantMessageEvent{
-          type: :start,
-          content_index: 0,
-          delta: nil,
-          message: create_initial_message(provider, model_id, timestamp)
-        }
-
-      %{"event" => "content_block_start", "data" => data} ->
-        case data["content_block"]["type"] do
-          "text" ->
-            %AssistantMessageEvent{
-              type: :text_start,
-              content_index: data["index"] || 0,
-              delta: nil,
-              message: nil
-            }
-
-          "tool_use" ->
-            %AssistantMessageEvent{
-              type: :toolcall_start,
-              content_index: data["index"] || 0,
-              delta: nil,
-              message: nil
-            }
-
-          _ ->
-            nil
-        end
-
-      %{"event" => "content_block_delta", "data" => data} ->
-        case data["delta"]["type"] do
-          "text_delta" ->
-            %AssistantMessageEvent{
-              type: :text_delta,
-              content_index: data["index"] || 0,
-              delta: data["delta"]["text"],
-              message: nil
-            }
-
-          "input_json_delta" ->
-            %AssistantMessageEvent{
-              type: :toolcall_delta,
-              content_index: data["index"] || 0,
-              delta: data["delta"]["partial_json"],
-              message: nil
-            }
-
-          _ ->
-            nil
-        end
-
-      %{"event" => "message_delta", "data" => data} ->
-        if data["delta"]["stop_reason"] do
-          %AssistantMessageEvent{
-            type: :done,
-            content_index: 0,
-            delta: nil,
-            reason: parse_stop_reason(data["delta"]["stop_reason"], provider),
-            message: nil
-          }
-        else
-          nil
-        end
-
-      %{"event" => "message_stop"} ->
-        %AssistantMessageEvent{
-          type: :done,
-          content_index: 0,
-          delta: nil,
-          reason: :stop,
-          message: nil
-        }
-
-      %{"event" => "error", "data" => error_data} ->
-        %AssistantMessageEvent{
-          type: :error,
-          content_index: 0,
-          delta: nil,
-          error: %{message: error_data["message"], type: error_data["type"]},
-          message: nil
-        }
-
-      _ ->
-        nil
-    end
+  defp convert_sse_to_assistant_event(%{"event" => "start"}, provider, model_id) do
+    %AssistantMessageEvent{
+      type: :start,
+      content_index: 0,
+      delta: nil,
+      message: create_initial_message(provider, model_id, System.system_time(:millisecond))
+    }
   end
+
+  defp convert_sse_to_assistant_event(%{"event" => "content_block_start", "data" => data}, _provider, _model_id),
+    do: convert_content_block_start(data)
+
+  defp convert_sse_to_assistant_event(%{"event" => "content_block_delta", "data" => data}, _provider, _model_id),
+    do: convert_content_block_delta(data)
+
+  defp convert_sse_to_assistant_event(%{"event" => "message_delta", "data" => data}, provider, _model_id),
+    do: convert_message_delta(data, provider)
+
+  defp convert_sse_to_assistant_event(%{"event" => "message_stop"}, _provider, _model_id) do
+    %AssistantMessageEvent{type: :done, content_index: 0, delta: nil, reason: :stop, message: nil}
+  end
+
+  defp convert_sse_to_assistant_event(%{"event" => "error", "data" => error_data}, _provider, _model_id) do
+    %AssistantMessageEvent{
+      type: :error,
+      content_index: 0,
+      delta: nil,
+      error: %{message: error_data["message"], type: error_data["type"]},
+      message: nil
+    }
+  end
+
+  defp convert_sse_to_assistant_event(_, _provider, _model_id), do: nil
+
+  defp convert_content_block_start(%{"content_block" => %{"type" => "text"}} = data) do
+    %AssistantMessageEvent{type: :text_start, content_index: data["index"] || 0, delta: nil, message: nil}
+  end
+
+  defp convert_content_block_start(%{"content_block" => %{"type" => "tool_use"}} = data) do
+    %AssistantMessageEvent{type: :toolcall_start, content_index: data["index"] || 0, delta: nil, message: nil}
+  end
+
+  defp convert_content_block_start(_), do: nil
+
+  defp convert_content_block_delta(%{"delta" => %{"type" => "text_delta", "text" => text}} = data) do
+    %AssistantMessageEvent{type: :text_delta, content_index: data["index"] || 0, delta: text, message: nil}
+  end
+
+  defp convert_content_block_delta(%{"delta" => %{"type" => "input_json_delta", "partial_json" => partial}} = data) do
+    %AssistantMessageEvent{type: :toolcall_delta, content_index: data["index"] || 0, delta: partial, message: nil}
+  end
+
+  defp convert_content_block_delta(_), do: nil
+
+  defp convert_message_delta(%{"delta" => %{"stop_reason" => stop_reason}}, provider) when not is_nil(stop_reason) do
+    %AssistantMessageEvent{
+      type: :done,
+      content_index: 0,
+      delta: nil,
+      reason: parse_stop_reason(stop_reason, provider),
+      message: nil
+    }
+  end
+
+  defp convert_message_delta(_, _provider), do: nil
 
   defp create_initial_message(provider, model_id, _timestamp) do
     %AssistantMessage{
