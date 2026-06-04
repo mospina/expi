@@ -35,7 +35,7 @@ defmodule Expi.CompleteSimpleTest do
           assert response.provider == "anthropic"
           assert response.model == "claude-opus-4-5"
           assert is_list(response.content)
-          assert length(response.content) > 0
+          assert response.content != []
           assert %Usage{} = response.usage
 
           # Should contain text content
@@ -258,7 +258,7 @@ defmodule Expi.CompleteSimpleTest do
           # Check if tool calls were made
           tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
 
-          if length(tool_calls) > 0 do
+          if tool_calls != [] do
             tool_call = List.first(tool_calls)
             assert tool_call.name == "get_weather"
             assert is_map(tool_call.arguments)

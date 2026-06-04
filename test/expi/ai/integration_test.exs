@@ -56,7 +56,7 @@ defmodule Expi.AI.IntegrationTest do
           # Verify response structure
           assert response.role == :assistant
           assert is_list(response.content)
-          assert length(response.content) > 0
+          assert response.content != []
 
           # Verify usage tracking
           assert response.usage.input > 0
@@ -97,7 +97,7 @@ defmodule Expi.AI.IntegrationTest do
 
           # Verify reasoning content is present
           assert is_binary(response.reasoning_content) or
-                   (is_list(response.reasoning_content) and length(response.reasoning_content) > 0)
+                   (is_list(response.reasoning_content) and response.reasoning_content != [])
 
           IO.puts("✅ Claude reasoning mode test passed")
       end
@@ -490,7 +490,7 @@ defmodule Expi.AI.IntegrationTest do
           # Should either use the tool or explain it would call the weather function
           content_text = extract_text_content(response.content)
 
-          if length(response.tool_calls) > 0 do
+          if response.tool_calls != [] do
             tool_call = hd(response.tool_calls)
             assert tool_call.name == "get_weather"
 
@@ -559,11 +559,11 @@ defmodule Expi.AI.IntegrationTest do
           duration = end_time - start_time
 
           # Verify all succeeded
-          assert length(results) == 3
+          assert match?([_, _, _], results)
 
           Enum.each(results, fn {:ok, response} ->
             assert response.role == :assistant
-            assert length(response.content) > 0
+            assert response.content != []
           end)
 
           IO.puts("✅ Concurrent requests test passed")

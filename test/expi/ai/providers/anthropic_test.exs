@@ -65,7 +65,7 @@ defmodule Expi.Providers.AnthropicTest do
       assert response.provider == "anthropic"
       assert response.model == "claude-opus-4-5"
       assert is_list(response.content)
-      assert length(response.content) > 0
+      assert response.content != []
       assert %Usage{} = response.usage
       assert response.stop_reason in [:stop, :length, :tool_use]
     end
@@ -175,7 +175,7 @@ defmodule Expi.Providers.AnthropicTest do
       # Check if tool calls were made
       tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
 
-      if length(tool_calls) > 0 do
+      if tool_calls != [] do
         tool_call = List.first(tool_calls)
         assert %ToolCall{} = tool_call
         assert tool_call.name == "get_weather"
@@ -330,7 +330,7 @@ defmodule Expi.Providers.AnthropicTest do
       assert payload["temperature"] == 0.7
       assert payload["system"] == "You are helpful"
       assert is_list(payload["messages"])
-      assert length(payload["messages"]) == 1
+      assert match?([_], payload["messages"])
 
       message = List.first(payload["messages"])
       assert message["role"] == "user"
@@ -354,7 +354,7 @@ defmodule Expi.Providers.AnthropicTest do
       assert {:ok, payload} = Anthropic.build_request_payload(model, context, %{})
       message = List.first(payload["messages"])
       assert is_list(message["content"])
-      assert length(message["content"]) == 2
+      assert match?([_, _], message["content"])
 
       [text_block, image_block] = message["content"]
       assert text_block["type"] == "text"
@@ -383,7 +383,7 @@ defmodule Expi.Providers.AnthropicTest do
 
       assert {:ok, payload} = Anthropic.build_request_payload(model, context, %{})
       assert is_list(payload["tools"])
-      assert length(payload["tools"]) == 1
+      assert match?([_], payload["tools"])
       assert List.first(payload["tools"])["name"] == "calculator"
     end
 
@@ -424,11 +424,11 @@ defmodule Expi.Providers.AnthropicTest do
       }
 
       assert {:ok, payload} = Anthropic.build_request_payload(model, context, %{})
-      assert length(payload["messages"]) == 2
+      assert match?([_, _], payload["messages"])
       tool_result_message = List.last(payload["messages"])
       assert tool_result_message["role"] == "user"
       assert is_list(tool_result_message["content"])
-      assert length(tool_result_message["content"]) == 2
+      assert match?([_, _], tool_result_message["content"])
       assert Enum.all?(tool_result_message["content"], &(&1["type"] == "tool_result"))
     end
 
@@ -481,7 +481,7 @@ defmodule Expi.Providers.AnthropicTest do
       assert message.model == "claude-opus-4-5"
       assert message.stop_reason == :stop
 
-      assert length(message.content) == 1
+      assert match?([_], message.content)
       text_content = List.first(message.content)
       assert %TextContent{} = text_content
       assert text_content.text == "Hello! How can I help you?"
@@ -517,7 +517,7 @@ defmodule Expi.Providers.AnthropicTest do
       }
 
       assert {:ok, message} = Anthropic.parse_response(api_response)
-      assert length(message.content) == 2
+      assert match?([_, _], message.content)
 
       thinking_content = Enum.find(message.content, &(&1.type == :thinking))
       text_content = Enum.find(message.content, &(&1.type == :text))
@@ -556,7 +556,7 @@ defmodule Expi.Providers.AnthropicTest do
 
       assert {:ok, message} = Anthropic.parse_response(api_response)
       assert message.stop_reason == :tool_use
-      assert length(message.content) == 1
+      assert match?([_], message.content)
 
       tool_call = List.first(message.content)
       assert %ToolCall{} = tool_call

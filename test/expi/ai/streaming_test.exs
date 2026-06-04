@@ -31,7 +31,7 @@ defmodule Expi.AI.StreamingTest do
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
           events = Enum.to_list(stream)
-          assert length(events) > 0
+          assert events != []
 
           # Should start with :start event
           first_event = List.first(events)
@@ -64,7 +64,7 @@ defmodule Expi.AI.StreamingTest do
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
           events = Enum.to_list(stream)
-          assert length(events) > 0
+          assert events != []
 
           # Verify event structure
           events
@@ -94,16 +94,16 @@ defmodule Expi.AI.StreamingTest do
       case AI.stream_simple(model, context) do
         {:ok, stream} ->
           events = Enum.to_list(stream)
-          assert length(events) > 0
+          assert events != []
 
           # Check for expected streaming pattern
           start_events = Enum.filter(events, &(&1.type == :start))
           done_events = Enum.filter(events, &(&1.type == :done))
           text_delta_events = Enum.filter(events, &(&1.type == :text_delta))
 
-          assert length(start_events) >= 1
-          assert length(done_events) >= 1
-          assert length(text_delta_events) >= 1
+          assert start_events != []
+          assert done_events != []
+          assert text_delta_events != []
 
         {:error, reason} ->
           assert reason in [:connection_refused, :network_error, :not_implemented]
@@ -142,7 +142,7 @@ defmodule Expi.AI.StreamingTest do
       """
 
       events = Streaming.parse_sse_chunk(chunk)
-      assert length(events) == 2
+      assert match?([_, _], events)
 
       [first_event, second_event] = events
       assert first_event["type"] == "message_start"
@@ -303,7 +303,7 @@ defmodule Expi.AI.StreamingTest do
       event = %AssistantMessageEvent{type: :text_start, content_index: 0}
       result = Streaming.accumulate_message(message, event)
 
-      assert length(result.content) == 1
+      assert match?([_], result.content)
       assert %TextContent{text: ""} = Enum.at(result.content, 0)
     end
 
@@ -322,7 +322,7 @@ defmodule Expi.AI.StreamingTest do
       event = %AssistantMessageEvent{type: :thinking_start, content_index: 0}
       result = Streaming.accumulate_message(message, event)
 
-      assert length(result.content) == 1
+      assert match?([_], result.content)
       assert %ThinkingContent{thinking: ""} = Enum.at(result.content, 0)
     end
 
@@ -368,7 +368,7 @@ defmodule Expi.AI.StreamingTest do
       event2 = %AssistantMessageEvent{type: :thinking_start, content_index: 1}
       result = Streaming.accumulate_message(message, event2)
 
-      assert length(result.content) == 2
+      assert match?([_, _], result.content)
       assert %TextContent{} = Enum.at(result.content, 0)
       assert %ThinkingContent{} = Enum.at(result.content, 1)
     end
@@ -411,7 +411,7 @@ defmodule Expi.AI.StreamingTest do
       assert final_message.role == :assistant
       assert final_message.stop_reason == :stop
       assert final_message.timestamp > 0
-      assert length(final_message.content) == 1
+      assert match?([_], final_message.content)
 
       text_content = List.first(final_message.content)
       assert %TextContent{text: "Hello there!"} = text_content
@@ -441,7 +441,7 @@ defmodule Expi.AI.StreamingTest do
 
       final_message = Enum.reduce(events, message, &Streaming.accumulate_message(&2, &1))
 
-      assert length(final_message.content) == 2
+      assert match?([_, _], final_message.content)
 
       thinking_content = Enum.at(final_message.content, 0)
       text_content = Enum.at(final_message.content, 1)

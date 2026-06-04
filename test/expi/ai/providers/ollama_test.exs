@@ -85,7 +85,7 @@ defmodule Expi.Providers.OllamaTest do
           assert response.provider == "ollama"
           assert response.model == "llama3.1:8b"
           assert is_list(response.content)
-          assert length(response.content) > 0
+          assert response.content != []
           assert %Usage{} = response.usage
           assert response.stop_reason in [:stop, :length, :tool_use]
 
@@ -214,7 +214,7 @@ defmodule Expi.Providers.OllamaTest do
           # Check for tool calls
           tool_calls = Enum.filter(response.content, &(&1.type == :tool_call))
 
-          if length(tool_calls) > 0 do
+          if tool_calls != [] do
             tool_call = List.first(tool_calls)
             assert %ToolCall{} = tool_call
             assert tool_call.name == "calculator"
@@ -334,7 +334,7 @@ defmodule Expi.Providers.OllamaTest do
       assert payload["temperature"] == 0.8
       assert is_list(payload["messages"])
       # system + user message
-      assert length(payload["messages"]) == 2
+      assert match?([_, _], payload["messages"])
 
       [system_msg, user_msg] = payload["messages"]
       assert system_msg["role"] == "system"
@@ -377,7 +377,7 @@ defmodule Expi.Providers.OllamaTest do
       }
 
       assert {:ok, payload} = Ollama.build_request_payload(model, context, %{})
-      assert length(payload["messages"]) == 3
+      assert match?([_, _, _], payload["messages"])
 
       [user1, assistant1, user2] = payload["messages"]
       assert user1["role"] == "user"
@@ -418,7 +418,7 @@ defmodule Expi.Providers.OllamaTest do
       assert {:ok, payload} = Ollama.build_request_payload(model, context, %{})
       assert payload["tools"] != nil
       assert is_list(payload["tools"])
-      assert length(payload["tools"]) == 1
+      assert match?([_], payload["tools"])
 
       tool_def = List.first(payload["tools"])
       assert tool_def["type"] == "function"
@@ -462,7 +462,7 @@ defmodule Expi.Providers.OllamaTest do
       assert {:ok, payload} = Ollama.build_request_payload(model, context, %{})
 
       # Should only have user message
-      assert length(payload["messages"]) == 1
+      assert match?([_], payload["messages"])
       user_message = List.first(payload["messages"])
       assert user_message["role"] == "user"
     end
@@ -500,7 +500,7 @@ defmodule Expi.Providers.OllamaTest do
       assert message.model == "llama3.1:8b"
       assert message.stop_reason == :stop
 
-      assert length(message.content) == 1
+      assert match?([_], message.content)
       text_content = List.first(message.content)
       assert %TextContent{} = text_content
       assert text_content.text == "The capital of France is Paris."
@@ -546,7 +546,7 @@ defmodule Expi.Providers.OllamaTest do
       assert {:ok, message} = Ollama.parse_response(api_response)
       assert message.stop_reason == :tool_use
 
-      assert length(message.content) == 1
+      assert match?([_], message.content)
       tool_call = List.first(message.content)
       assert %ToolCall{} = tool_call
       assert tool_call.id == "call_abc123"

@@ -30,8 +30,8 @@ defmodule Expi.Session.AgentSessionTest do
 
     {:ok, session} = AgentSession.prompt(session, "hello", %{run_conversation: false})
 
-    assert length(AgentSession.messages(session)) == 1
-    assert length(Manager.get_entries(AgentSession.session_manager(session))) >= 1
+    assert match?([_], AgentSession.messages(session))
+    assert Manager.get_entries(AgentSession.session_manager(session)) != []
   end
 
   test "compact writes compaction entry" do

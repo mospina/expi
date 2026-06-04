@@ -83,7 +83,7 @@ defmodule Expi.Providers.GeminiTest do
       assert response.provider == "google"
       assert response.model == "gemini-pro"
       assert is_list(response.content)
-      assert length(response.content) > 0
+      assert response.content != []
       assert %Usage{} = response.usage
       assert response.stop_reason in [:stop, :length, :tool_use]
     end
@@ -107,7 +107,7 @@ defmodule Expi.Providers.GeminiTest do
       text_content = Enum.find(response.content, &(&1.type == :text))
       assert text_content != nil
       assert is_binary(text_content.text)
-      assert String.length(text_content.text) > 0
+      assert text_content.text != ""
     end
 
     test "handles multi-modal input with vision model", %{vision_model: model} do
@@ -222,7 +222,7 @@ defmodule Expi.Providers.GeminiTest do
       # Check for function calls
       function_calls = Enum.filter(response.content, &(&1.type == :tool_call))
 
-      if length(function_calls) > 0 do
+      if function_calls != [] do
         function_call = List.first(function_calls)
         assert %ToolCall{} = function_call
         assert function_call.name == "get_weather"
@@ -361,7 +361,7 @@ defmodule Expi.Providers.GeminiTest do
       assert {:ok, payload} = Gemini.build_request_payload(model, context, %{})
       content = List.first(payload["contents"])
       assert is_list(content["parts"])
-      assert length(content["parts"]) == 2
+      assert match?([_, _], content["parts"])
 
       text_part = Enum.find(content["parts"], &Map.has_key?(&1, "text"))
       image_part = Enum.find(content["parts"], &Map.has_key?(&1, "inlineData"))
@@ -401,7 +401,7 @@ defmodule Expi.Providers.GeminiTest do
 
       function_declarations = List.first(payload["tools"])["functionDeclarations"]
       assert is_list(function_declarations)
-      assert length(function_declarations) == 1
+      assert match?([_], function_declarations)
 
       func = List.first(function_declarations)
       assert func["name"] == "calculate"
@@ -447,7 +447,7 @@ defmodule Expi.Providers.GeminiTest do
       }
 
       assert {:ok, payload} = Gemini.build_request_payload(model, context, %{})
-      assert length(payload["contents"]) == 3
+      assert match?([_, _, _], payload["contents"])
 
       [user1, assistant1, user2] = payload["contents"]
       assert user1["role"] == "user"
@@ -476,7 +476,7 @@ defmodule Expi.Providers.GeminiTest do
       assert {:ok, payload} = Gemini.build_request_payload(model, context, options)
       assert payload["safetySettings"] != nil
       assert is_list(payload["safetySettings"])
-      assert length(payload["safetySettings"]) == 1
+      assert match?([_], payload["safetySettings"])
 
       safety_setting = List.first(payload["safetySettings"])
       assert safety_setting["category"] == "HARM_CATEGORY_HARASSMENT"
@@ -516,7 +516,7 @@ defmodule Expi.Providers.GeminiTest do
       assert message.provider == "google"
       assert message.stop_reason == :stop
 
-      assert length(message.content) == 1
+      assert match?([_], message.content)
       text_content = List.first(message.content)
       assert %TextContent{} = text_content
       assert text_content.text == "Hello! I'm doing well, thank you for asking."
@@ -558,7 +558,7 @@ defmodule Expi.Providers.GeminiTest do
       assert {:ok, message} = Gemini.parse_response(api_response)
       assert message.stop_reason == :tool_use
 
-      assert length(message.content) == 1
+      assert match?([_], message.content)
       tool_call = List.first(message.content)
       assert %ToolCall{} = tool_call
       assert tool_call.name == "get_weather"
