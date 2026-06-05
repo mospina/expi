@@ -318,10 +318,10 @@ defmodule Expi.Agent.Loop do
       false
     else
       has_pending_tools = State.has_pending_tools?(loop_state.agent_state)
-    has_steering = length(loop_state.message_queue.steering) > 0
-    has_follow_up = length(loop_state.message_queue.follow_up) > 0
-    is_streaming = State.is_streaming?(loop_state.agent_state)
-    needs_assistant_turn = last_message_requires_response?(loop_state.agent_state)
+      has_steering = loop_state.message_queue.steering != []
+      has_follow_up = loop_state.message_queue.follow_up != []
+      is_streaming = State.is_streaming?(loop_state.agent_state)
+      needs_assistant_turn = last_message_requires_response?(loop_state.agent_state)
 
       has_pending_tools or has_steering or has_follow_up or is_streaming or needs_assistant_turn
     end

@@ -490,20 +490,23 @@ defmodule Expi.Agent.ToolExecutor do
         end
       end)
 
+    total_tools = Enum.count(results)
+    execution_time_count = Enum.count(execution_times)
+
     %{
-      total_tools: length(results),
+      total_tools: total_tools,
       successful: successful_count,
       failed: failed_count,
       success_rate:
-        if length(results) > 0 do
-          successful_count / length(results)
+        if total_tools != 0 do
+          successful_count / total_tools
         else
           0.0
         end,
       total_execution_time: Enum.sum(execution_times),
       average_execution_time:
-        if length(execution_times) > 0 do
-          Enum.sum(execution_times) / length(execution_times)
+        if execution_time_count != 0 do
+          Enum.sum(execution_times) / execution_time_count
         else
           0.0
         end,

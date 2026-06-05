@@ -124,31 +124,25 @@ defmodule Expi.AI.IntegrationTest do
 
           {:ok, stream} = AI.stream_simple(model, context)
 
-          events = []
-          content_text = ""
+          events = Enum.to_list(stream)
 
-          stream
-          |> Stream.each(fn event ->
-            events = [event | events]
+          content_text =
+            Enum.reduce(events, "", fn event, acc ->
+              case event.type do
+                :text_delta -> acc <> event.delta
+                :done ->
+                  # Verify final message
+                  assert event.message.role == :assistant
+                  assert event.message.usage.input > 0
+                  assert event.message.usage.output > 0
+                  acc
 
-            case event.type do
-              :text_delta ->
-                content_text = content_text <> event.delta
-
-              :done ->
-                # Verify final message
-                assert event.message.role == :assistant
-                assert event.message.usage.input > 0
-                assert event.message.usage.output > 0
-
-              _ ->
-                :ok
-            end
-          end)
-          |> Stream.run()
+                _ -> acc
+              end
+            end)
 
           # Verify we received expected event types
-          event_types = Enum.map(events, & &1.type) |> Enum.reverse()
+          event_types = Enum.map(events, & &1.type)
           assert :start in event_types
           assert :text_start in event_types
           assert :text_delta in event_types
@@ -264,25 +258,18 @@ defmodule Expi.AI.IntegrationTest do
 
           {:ok, stream} = AI.stream_simple(model, context)
 
-          events = []
-          content_text = ""
+          events = Enum.to_list(stream)
 
-          stream
-          |> Stream.each(fn event ->
-            events = [event | events]
-
-            case event.type do
-              :text_delta ->
-                content_text = content_text <> event.delta
-
-              _ ->
-                :ok
-            end
-          end)
-          |> Stream.run()
+          content_text =
+            Enum.reduce(events, "", fn event, acc ->
+              case event.type do
+                :text_delta -> acc <> event.delta
+                _ -> acc
+              end
+            end)
 
           # Verify streaming worked
-          event_types = Enum.map(events, & &1.type) |> Enum.reverse()
+          event_types = Enum.map(events, & &1.type)
           assert :start in event_types
           assert :text_delta in event_types
           assert :done in event_types
@@ -371,19 +358,15 @@ defmodule Expi.AI.IntegrationTest do
 
               {:ok, stream} = AI.stream_simple(model, context)
 
-              content_text = ""
+              events = Enum.to_list(stream)
 
-              stream
-              |> Stream.each(fn event ->
-                case event.type do
-                  :text_delta ->
-                    content_text = content_text <> event.delta
-
-                  _ ->
-                    :ok
-                end
-              end)
-              |> Stream.run()
+              content_text =
+                Enum.reduce(events, "", fn event, acc ->
+                  case event.type do
+                    :text_delta -> acc <> event.delta
+                    _ -> acc
+                  end
+                end)
 
               # Verify we got code-like content
               assert content_text =~ "def" or content_text =~ "function"

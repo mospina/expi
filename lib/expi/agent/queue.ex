@@ -243,7 +243,7 @@ defmodule Expi.Agent.Queue do
   """
   @spec has_steering?(message_queue()) :: boolean()
   def has_steering?(queue) do
-    length(queue.steering) > 0
+    queue.steering != []
   end
 
   @doc """
@@ -259,7 +259,7 @@ defmodule Expi.Agent.Queue do
   """
   @spec has_follow_up?(message_queue()) :: boolean()
   def has_follow_up?(queue) do
-    length(queue.follow_up) > 0
+    queue.follow_up != []
   end
 
   @doc """
@@ -275,7 +275,7 @@ defmodule Expi.Agent.Queue do
   """
   @spec is_empty?(message_queue()) :: boolean()
   def is_empty?(queue) do
-    length(queue.steering) == 0 and length(queue.follow_up) == 0
+    queue.steering == [] and queue.follow_up == []
   end
 
   @doc """

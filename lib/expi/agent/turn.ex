@@ -370,8 +370,8 @@ defmodule Expi.Agent.Turn do
         # Extract tool calls from the response
         tool_calls = extract_tool_calls(assistant_message)
 
-        if length(tool_calls) > 0 do
-          Logger.debug("Extracted tool calls", %{count: length(tool_calls)})
+        if tool_calls != [] do
+          Logger.debug("Extracted tool calls", %{count: Enum.count(tool_calls)})
 
           # Emit tool extraction events
           Enum.each(tool_calls, fn tool_call ->
