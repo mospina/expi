@@ -8,7 +8,8 @@ defmodule Expi.SessionBuiltinToolsTest do
   alias Expi.Types.{Cost, Model}
 
   test "read built-in returns file contents" do
-    path = Path.join(System.tmp_dir!(), "expi_builtin_read_#{System.unique_integer([:positive])}.txt")
+    path =
+      Path.join(System.tmp_dir!(), "expi_builtin_read_#{System.unique_integer([:positive])}.txt")
 
     try do
       File.write!(path, "hello built-in read")
