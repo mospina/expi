@@ -49,7 +49,8 @@ defmodule Expi.AI.HttpClient do
   @doc """
   Makes a streaming POST request for Server-Sent Events.
   """
-  @spec stream_post(String.t(), map() | String.t(), list()) :: {:ok, Enumerable.t()} | {:error, atom()}
+  @spec stream_post(String.t(), map() | String.t(), list()) ::
+          {:ok, Enumerable.t()} | {:error, atom()}
   def stream_post(url, body, headers) do
     # Start the async request immediately and collect all chunks
     options = [

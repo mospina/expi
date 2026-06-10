@@ -197,11 +197,21 @@ defmodule Expi.AI.StreamingTest do
       assert result.delta == "Let me think..."
 
       # content_block_stop mapped by content block type when provided
-      event = %{"type" => "content_block_stop", "index" => 1, "content_block" => %{"type" => "thinking"}}
+      event = %{
+        "type" => "content_block_stop",
+        "index" => 1,
+        "content_block" => %{"type" => "thinking"}
+      }
+
       result = Streaming.standardize_event(event, "anthropic")
       assert result.type == :thinking_end
 
-      event = %{"type" => "content_block_stop", "index" => 2, "content_block" => %{"type" => "tool_use"}}
+      event = %{
+        "type" => "content_block_stop",
+        "index" => 2,
+        "content_block" => %{"type" => "tool_use"}
+      }
+
       result = Streaming.standardize_event(event, "anthropic")
       assert result.type == :toolcall_end
 

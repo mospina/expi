@@ -64,7 +64,8 @@ defmodule Expi.Session.ExtensionRunner do
     end
   end
 
-  @spec execute_command(t(), String.t(), any(), map()) :: {:handled, any()} | :not_found | {:error, term()}
+  @spec execute_command(t(), String.t(), any(), map()) ::
+          {:handled, any()} | :not_found | {:error, term()}
   def execute_command(%__MODULE__{} = runner, text, session, context \\ %{}) do
     with true <- String.starts_with?(text, "/"),
          {command_name, args} <- parse_slash_command(text),
@@ -80,11 +81,14 @@ defmodule Expi.Session.ExtensionRunner do
     end
   end
 
-  @spec emit_input(t(), String.t(), list(), map()) :: {:continue, String.t(), list()} | {:handled, any()}
+  @spec emit_input(t(), String.t(), list(), map()) ::
+          {:continue, String.t(), list()} | {:handled, any()}
   def emit_input(%__MODULE__{} = runner, text, images, context \\ %{}) do
     hooks = Map.get(runner.hooks, :input, [])
 
-    Enum.reduce_while(hooks, {:continue, text, images}, fn hook, {:continue, current_text, current_images} ->
+    Enum.reduce_while(hooks, {:continue, text, images}, fn hook,
+                                                           {:continue, current_text,
+                                                            current_images} ->
       case hook.(current_text, current_images, context) do
         :continue -> {:cont, {:continue, current_text, current_images}}
         {:transform, new_text, new_images} -> {:cont, {:continue, new_text, new_images}}
@@ -123,20 +127,53 @@ defmodule Expi.Session.ExtensionRunner do
   defp register_extension(%__MODULE__{} = runner, extension_module, context) do
     cond do
       not Code.ensure_loaded?(extension_module) ->
-        add_diag(runner, :error, "extension module not available: #{inspect(extension_module)}", inspect(extension_module))
+        add_diag(
+          runner,
+          :error,
+          "extension module not available: #{inspect(extension_module)}",
+          inspect(extension_module)
+        )
 
       not function_exported?(extension_module, :register, 1) ->
-        add_diag(runner, :error, "extension missing register/1: #{inspect(extension_module)}", inspect(extension_module))
+        add_diag(
+          runner,
+          :error,
+          "extension missing register/1: #{inspect(extension_module)}",
+          inspect(extension_module)
+        )
 
-      MapSet.size(runner.trusted_modules) > 0 and not MapSet.member?(runner.trusted_modules, extension_module) ->
-        add_diag(runner, :warning, "extension skipped (not trusted): #{inspect(extension_module)}", inspect(extension_module))
+      MapSet.size(runner.trusted_modules) > 0 and
+          not MapSet.member?(runner.trusted_modules, extension_module) ->
+        add_diag(
+          runner,
+          :warning,
+          "extension skipped (not trusted): #{inspect(extension_module)}",
+          inspect(extension_module)
+        )
 
       true ->
         case extension_module.register(context) do
-          {:ok, registration} -> apply_registration(runner, extension_module, registration)
-          registration when is_map(registration) -> apply_registration(runner, extension_module, registration)
-          {:error, reason} -> add_diag(runner, :error, "extension registration failed: #{inspect(reason)}", inspect(extension_module))
-          other -> add_diag(runner, :error, "invalid extension registration: #{inspect(other)}", inspect(extension_module))
+          {:ok, registration} ->
+            apply_registration(runner, extension_module, registration)
+
+          registration when is_map(registration) ->
+            apply_registration(runner, extension_module, registration)
+
+          {:error, reason} ->
+            add_diag(
+              runner,
+              :error,
+              "extension registration failed: #{inspect(reason)}",
+              inspect(extension_module)
+            )
+
+          other ->
+            add_diag(
+              runner,
+              :error,
+              "invalid extension registration: #{inspect(other)}",
+              inspect(extension_module)
+            )
         end
     end
   end
@@ -147,7 +184,8 @@ defmodule Expi.Session.ExtensionRunner do
     hooks = Map.get(registration, :hooks, %{})
 
     {runner, _} =
-      Enum.reduce(commands, {runner, MapSet.new(Map.keys(runner.commands))}, fn command, {acc, seen} ->
+      Enum.reduce(commands, {runner, MapSet.new(Map.keys(runner.commands))}, fn command,
+                                                                                {acc, seen} ->
         %__MODULE__{} = acc
 
         if MapSet.member?(seen, command.name) do
@@ -179,7 +217,8 @@ defmodule Expi.Session.ExtensionRunner do
 
   defp normalize_commands(commands, extension_module) do
     Enum.flat_map(commands, fn
-      %{name: name, handler: handler} = command when is_binary(name) and is_function(handler, 3) ->
+      %{name: name, handler: handler} = command
+      when is_binary(name) and is_function(handler, 3) ->
         [
           %{
             name: name,

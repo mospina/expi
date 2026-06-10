@@ -188,7 +188,9 @@ defmodule Expi.Providers.Anthropic do
         }
       end)
 
-    do_format_anthropic_messages(remaining, [%{"role" => "user", "content" => content_blocks} | acc])
+    do_format_anthropic_messages(remaining, [
+      %{"role" => "user", "content" => content_blocks} | acc
+    ])
   end
 
   defp do_format_anthropic_messages([message | rest], acc) do
@@ -295,7 +297,10 @@ defmodule Expi.Providers.Anthropic do
     }
   end
 
-  defp format_tool(%Expi.Types.Tool{type: :function, function: %{name: name, description: desc, parameters: params}}) do
+  defp format_tool(%Expi.Types.Tool{
+         type: :function,
+         function: %{name: name, description: desc, parameters: params}
+       }) do
     %{
       "name" => name,
       "description" => desc,
@@ -404,7 +409,13 @@ defmodule Expi.Providers.Anthropic do
          {:ok, headers} <- prepare_streaming_headers(model),
          {:ok, url} <- build_streaming_url(model) do
       # Attempt production streaming - if it fails, return the error
-      case Expi.AI.Streaming.create_production_stream(url, payload, headers, "anthropic", model.id) do
+      case Expi.AI.Streaming.create_production_stream(
+             url,
+             payload,
+             headers,
+             "anthropic",
+             model.id
+           ) do
         {:ok, event_stream} ->
           # create_production_stream already converts to AssistantMessageEvent format
           # No additional transformation needed

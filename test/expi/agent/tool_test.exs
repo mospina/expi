@@ -53,7 +53,9 @@ defmodule Expi.Agent.ToolTest do
           end
         )
 
-      assert {:ok, %AgentToolResult{} = result} = Tool.execute(tool, "call_1", %{"text" => "hello"})
+      assert {:ok, %AgentToolResult{} = result} =
+               Tool.execute(tool, "call_1", %{"text" => "hello"})
+
       assert [%TextContent{text: "hello"}] = result.content
     end
 

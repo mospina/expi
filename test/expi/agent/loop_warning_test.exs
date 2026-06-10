@@ -27,15 +27,24 @@ defmodule Expi.Agent.LoopWarningTest do
 
     follow_up_loop_state = %{
       base_loop_state
-      | message_queue: %{steering: [], follow_up: [Message.user("follow up") ]}
+      | message_queue: %{steering: [], follow_up: [Message.user("follow up")]}
     }
 
     assert Loop.should_continue?(follow_up_loop_state)
 
-    pending_tool_loop_state = %{base_loop_state | agent_state: State.add_pending_tool_call(agent_state, "call_1")}
+    pending_tool_loop_state = %{
+      base_loop_state
+      | agent_state: State.add_pending_tool_call(agent_state, "call_1")
+    }
+
     assert Loop.should_continue?(pending_tool_loop_state)
 
-    errored_loop_state = %{base_loop_state | status: :error, message_queue: %{steering: [Message.user("steer")], follow_up: []}}
+    errored_loop_state = %{
+      base_loop_state
+      | status: :error,
+        message_queue: %{steering: [Message.user("steer")], follow_up: []}
+    }
+
     refute Loop.should_continue?(errored_loop_state)
   end
 end

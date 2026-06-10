@@ -30,9 +30,16 @@ defmodule Expi.Session.BuiltinTools do
   def select(names) when is_list(names) do
     Enum.reduce(names, {[], []}, fn name, {tools, diagnostics} ->
       case fetch(name) do
-        {:ok, tool} -> {tools ++ [tool], diagnostics}
+        {:ok, tool} ->
+          {tools ++ [tool], diagnostics}
+
         :error ->
-          diag = %ResourceDiagnostic{severity: :warning, message: "unknown built-in tool: #{name}", source: "builtin_tools"}
+          diag = %ResourceDiagnostic{
+            severity: :warning,
+            message: "unknown built-in tool: #{name}",
+            source: "builtin_tools"
+          }
+
           {tools, diagnostics ++ [diag]}
       end
     end)
@@ -60,7 +67,9 @@ defmodule Expi.Session.BuiltinTools do
           path = get_param(params, "path")
 
           case path do
-            nil -> {:error, :missing_path}
+            nil ->
+              {:error, :missing_path}
+
             _ ->
               case File.read(path) do
                 {:ok, content} -> {:ok, content}
@@ -88,8 +97,12 @@ defmodule Expi.Session.BuiltinTools do
           content = get_param(params, "content")
 
           cond do
-            is_nil(path) -> {:error, :missing_path}
-            is_nil(content) -> {:error, :missing_content}
+            is_nil(path) ->
+              {:error, :missing_path}
+
+            is_nil(content) ->
+              {:error, :missing_content}
+
             true ->
               with :ok <- ensure_parent(path),
                    :ok <- File.write(path, content) do
@@ -150,7 +163,9 @@ defmodule Expi.Session.BuiltinTools do
           command = get_param(params, "command")
 
           case command do
-            nil -> {:error, :missing_command}
+            nil ->
+              {:error, :missing_command}
+
             _ ->
               {output, status} = System.cmd("bash", ["-lc", command], stderr_to_stdout: true)
               {:ok, AgentToolResult.text("exit=#{status}\n" <> output, %{status: status})}
@@ -166,11 +181,22 @@ defmodule Expi.Session.BuiltinTools do
       Tool.text_tool(
         "grep",
         "Search file contents by regex",
-        %{type: :object, properties: %{pattern: %{type: :string}, path: %{type: :string}}, required: ["pattern"]},
+        %{
+          type: :object,
+          properties: %{pattern: %{type: :string}, path: %{type: :string}},
+          required: ["pattern"]
+        },
         fn _id, params, _abort, _update ->
           pattern = get_param(params, "pattern") || ""
           path = get_param(params, "path") || "."
-          {output, status} = System.cmd("sh", ["-lc", "grep -R -n -- #{shell_escape(pattern)} #{shell_escape(path)}"], stderr_to_stdout: true)
+
+          {output, status} =
+            System.cmd(
+              "sh",
+              ["-lc", "grep -R -n -- #{shell_escape(pattern)} #{shell_escape(path)}"],
+              stderr_to_stdout: true
+            )
+
           {:ok, "exit=#{status}\n" <> output}
         end
       )
@@ -183,11 +209,20 @@ defmodule Expi.Session.BuiltinTools do
       Tool.text_tool(
         "find",
         "Find files by glob-like pattern",
-        %{type: :object, properties: %{pattern: %{type: :string}, path: %{type: :string}}, required: ["pattern"]},
+        %{
+          type: :object,
+          properties: %{pattern: %{type: :string}, path: %{type: :string}},
+          required: ["pattern"]
+        },
         fn _id, params, _abort, _update ->
           pattern = get_param(params, "pattern") || "*"
           path = get_param(params, "path") || "."
-          {output, status} = System.cmd("sh", ["-lc", "find #{shell_escape(path)} -name #{shell_escape(pattern)}"], stderr_to_stdout: true)
+
+          {output, status} =
+            System.cmd("sh", ["-lc", "find #{shell_escape(path)} -name #{shell_escape(pattern)}"],
+              stderr_to_stdout: true
+            )
+
           {:ok, "exit=#{status}\n" <> output}
         end
       )

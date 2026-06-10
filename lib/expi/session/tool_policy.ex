@@ -15,11 +15,22 @@ defmodule Expi.Session.ToolPolicy do
 
     {builtin_tools, diagnostics} =
       case tool_mode do
-        :default -> BuiltinTools.select(BuiltinTools.default_names())
-        :none -> {[], []}
-        {:only, names} when is_list(names) -> BuiltinTools.select(names)
+        :default ->
+          BuiltinTools.select(BuiltinTools.default_names())
+
+        :none ->
+          {[], []}
+
+        {:only, names} when is_list(names) ->
+          BuiltinTools.select(names)
+
         other ->
-          diag = %ResourceDiagnostic{severity: :warning, message: "invalid tool_mode: #{inspect(other)}; using :default", source: "tool_policy"}
+          diag = %ResourceDiagnostic{
+            severity: :warning,
+            message: "invalid tool_mode: #{inspect(other)}; using :default",
+            source: "tool_policy"
+          }
+
           {tools, diags} = BuiltinTools.select(BuiltinTools.default_names())
           {tools, [diag | diags]}
       end

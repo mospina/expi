@@ -131,7 +131,15 @@ defmodule Expi.Agent.ToolExecutor do
       timeout: timeout
     })
 
-    :ets.insert(@execution_table, {execution_id, %{status: :running, started_at: System.system_time(:millisecond), tool_count: length(tool_calls)}})
+    :ets.insert(
+      @execution_table,
+      {execution_id,
+       %{
+         status: :running,
+         started_at: System.system_time(:millisecond),
+         tool_count: length(tool_calls)
+       }}
+    )
 
     case strategy do
       :concurrent ->
@@ -214,7 +222,9 @@ defmodule Expi.Agent.ToolExecutor do
       end
 
     try do
-      Logger.info("Executing tool name=#{tool_call.name} id=#{tool_call.id} args=#{inspect(summarize_arguments(tool_call.arguments))}")
+      Logger.info(
+        "Executing tool name=#{tool_call.name} id=#{tool_call.id} args=#{inspect(summarize_arguments(tool_call.arguments))}"
+      )
 
       # Execute the tool
       case Expi.Agent.Tool.execute(
@@ -242,7 +252,9 @@ defmodule Expi.Agent.ToolExecutor do
             timestamp: System.system_time(:millisecond)
           }
 
-          Logger.info("Tool execution succeeded name=#{tool_call.name} id=#{tool_call.id} duration_ms=#{execution_time}")
+          Logger.info(
+            "Tool execution succeeded name=#{tool_call.name} id=#{tool_call.id} duration_ms=#{execution_time}"
+          )
 
           if on_update do
             AgentToolCallback.on_complete(on_update, tool_call.id, tool_result, false)
@@ -272,7 +284,9 @@ defmodule Expi.Agent.ToolExecutor do
             timestamp: System.system_time(:millisecond)
           }
 
-          Logger.error("Tool execution failed name=#{tool_call.name} id=#{tool_call.id} reason=#{inspect(reason)} duration_ms=#{execution_time}")
+          Logger.error(
+            "Tool execution failed name=#{tool_call.name} id=#{tool_call.id} reason=#{inspect(reason)} duration_ms=#{execution_time}"
+          )
 
           if on_update do
             AgentToolCallback.on_complete(on_update, tool_call.id, error_result, true)
@@ -354,7 +368,8 @@ defmodule Expi.Agent.ToolExecutor do
       [] ->
         {:error, :not_found}
 
-      [{^execution_id, %{status: status} = execution}] when status in [:completed, :failed, :cancelled] ->
+      [{^execution_id, %{status: status} = execution}]
+      when status in [:completed, :failed, :cancelled] ->
         {:error, :already_completed}
 
       [{^execution_id, execution}] ->
@@ -385,7 +400,10 @@ defmodule Expi.Agent.ToolExecutor do
         {:error, :not_found}
 
       [{^execution_id, execution}] ->
-        Logger.debug("Monitoring execution", %{execution_id: execution_id, status: execution.status})
+        Logger.debug("Monitoring execution", %{
+          execution_id: execution_id,
+          status: execution.status
+        })
 
         if status_callback do
           status_callback.({execution.status, execution_id})
@@ -596,8 +614,11 @@ defmodule Expi.Agent.ToolExecutor do
           |> Task.async_stream(
             fn tool_call ->
               case Map.get(tool_map, tool_call.name) do
-                nil -> {:error, {:tool_not_found, tool_call.name}}
-                tool -> execute_single_tool(tool_call, tool, timeout: timeout, on_update: on_update)
+                nil ->
+                  {:error, {:tool_not_found, tool_call.name}}
+
+                tool ->
+                  execute_single_tool(tool_call, tool, timeout: timeout, on_update: on_update)
               end
             end,
             max_concurrency: max_concurrent,
@@ -612,7 +633,15 @@ defmodule Expi.Agent.ToolExecutor do
 
         if on_complete, do: on_complete.(results)
 
-        :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
+        :ets.insert(
+          @execution_table,
+          {execution_id,
+           %{
+             status: :completed,
+             completed_at: System.system_time(:millisecond),
+             tool_count: length(results)
+           }}
+        )
 
         Logger.debug("Concurrent execution completed", %{
           execution_id: execution_id,
@@ -626,6 +655,7 @@ defmodule Expi.Agent.ToolExecutor do
         {:error, reason}
     end
   end
+
   @spec execute_sequential(
           [ToolCall.t()],
           [AgentTool.t()],
@@ -664,7 +694,15 @@ defmodule Expi.Agent.ToolExecutor do
 
         if on_complete, do: on_complete.(results)
 
-        :ets.insert(@execution_table, {execution_id, %{status: :completed, completed_at: System.system_time(:millisecond), tool_count: length(results)}})
+        :ets.insert(
+          @execution_table,
+          {execution_id,
+           %{
+             status: :completed,
+             completed_at: System.system_time(:millisecond),
+             tool_count: length(results)
+           }}
+        )
 
         Logger.debug("Sequential execution completed", %{
           execution_id: execution_id,

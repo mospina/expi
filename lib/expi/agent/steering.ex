@@ -144,6 +144,7 @@ defmodule Expi.Agent.Steering do
       false
     end
   end
+
   @doc """
   Determines if follow-up messages should be processed.
 
@@ -222,8 +223,12 @@ defmodule Expi.Agent.Steering do
   end
 
   defp log_min_idle_wait(current_idle, min_idle_time) do
-    Logger.debug("Waiting for minimum idle time", %{current_idle: current_idle, min_required: min_idle_time})
+    Logger.debug("Waiting for minimum idle time", %{
+      current_idle: current_idle,
+      min_required: min_idle_time
+    })
   end
+
   @doc """
   Applies steering logic to determine message processing approach.
 

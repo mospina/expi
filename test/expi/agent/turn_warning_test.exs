@@ -12,7 +12,11 @@ defmodule Expi.Agent.TurnWarningTest do
       {:ok,
        [
          %{type: :start, partial: %{api: model.api, provider: model.provider, model: model.id}},
-         %{type: :toolcall_start, content_index: 0, tool_call: %{id: "call_1", name: "search", arguments: %{query: "hello"}}},
+         %{
+           type: :toolcall_start,
+           content_index: 0,
+           tool_call: %{id: "call_1", name: "search", arguments: %{query: "hello"}}
+         },
          %{type: :toolcall_end, content_index: 0, tool_call: nil},
          %{type: :done, reason: :stop, message: %{usage: nil}}
        ]}

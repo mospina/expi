@@ -89,7 +89,11 @@ defmodule Expi.Session.AgentSession do
               agent_after_user.messages
             )
 
-          session = %__MODULE__{session | agent: agent_after_user, session_manager: session_manager}
+          session = %__MODULE__{
+            session
+            | agent: agent_after_user,
+              session_manager: session_manager
+          }
 
           session =
             emit_sync(session, %{
@@ -110,7 +114,13 @@ defmodule Expi.Session.AgentSession do
                   )
 
                 outcome = Map.get(final_agent, :loop_outcome)
-                session = %__MODULE__{session | agent: final_agent, session_manager: manager, last_run_outcome: outcome}
+
+                session = %__MODULE__{
+                  session
+                  | agent: final_agent,
+                    session_manager: manager,
+                    last_run_outcome: outcome
+                }
 
                 session =
                   emit_sync(session, %{
@@ -177,14 +187,20 @@ defmodule Expi.Session.AgentSession do
           ExtensionRunner.new(%{
             enabled: runner.enabled,
             extensions: Map.get(opts, :extensions, []),
-            trusted_modules: Map.get(opts, :trusted_extensions, MapSet.to_list(runner.trusted_modules)),
+            trusted_modules:
+              Map.get(opts, :trusted_extensions, MapSet.to_list(runner.trusted_modules)),
             context: %{cwd: Manager.get_cwd(session.session_manager)}
           })
       end
 
     agent = ExtensionRunner.apply_tools(extension_runner, session.agent)
 
-    %__MODULE__{session | resource_loader: resource_loader, extension_runner: extension_runner, agent: agent}
+    %__MODULE__{
+      session
+      | resource_loader: resource_loader,
+        extension_runner: extension_runner,
+        agent: agent
+    }
   end
 
   @spec get_commands(t()) :: [CommandInfo.t()]
@@ -235,7 +251,13 @@ defmodule Expi.Session.AgentSession do
 
     with {:ok, updated_agent} <- Agent.add_steering(session.agent, text),
          {:ok, final_agent} <- Agent.run_conversation(updated_agent, session.default_run_options) do
-      {manager, _} = persist_new_messages(session.session_manager, session.agent.messages, final_agent.messages)
+      {manager, _} =
+        persist_new_messages(
+          session.session_manager,
+          session.agent.messages,
+          final_agent.messages
+        )
+
       {:ok, %__MODULE__{session | agent: final_agent, session_manager: manager}}
     end
   end
@@ -484,7 +506,9 @@ defmodule Expi.Session.AgentSession do
         {:ok, session, text}
 
       runner ->
-        case ExtensionRunner.execute_command(runner, text, session, %{cwd: Manager.get_cwd(session.session_manager)}) do
+        case ExtensionRunner.execute_command(runner, text, session, %{
+               cwd: Manager.get_cwd(session.session_manager)
+             }) do
           {:handled, updated_session} -> {:error, {:command_handled, updated_session}}
           :not_found -> {:ok, session, text}
           {:error, reason} -> {:error, reason}
@@ -498,9 +522,14 @@ defmodule Expi.Session.AgentSession do
         {:ok, text, images}
 
       runner ->
-        case ExtensionRunner.emit_input(runner, text, images, %{cwd: Manager.get_cwd(session.session_manager)}) do
-          {:continue, transformed_text, transformed_images} -> {:ok, transformed_text, transformed_images}
-          {:handled, result} -> {:error, {:input_handled, result}}
+        case ExtensionRunner.emit_input(runner, text, images, %{
+               cwd: Manager.get_cwd(session.session_manager)
+             }) do
+          {:continue, transformed_text, transformed_images} ->
+            {:ok, transformed_text, transformed_images}
+
+          {:handled, result} ->
+            {:error, {:input_handled, result}}
         end
     end
   end

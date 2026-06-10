@@ -467,7 +467,9 @@ defmodule Expi.Agent.Callbacks do
     ensure_stats_table()
 
     case :ets.lookup(@stats_table, callback_id) do
-      [{^callback_id, stats}] -> {:ok, stats}
+      [{^callback_id, stats}] ->
+        {:ok, stats}
+
       [] ->
         case Map.get(registry.stats, callback_id) do
           nil -> {:error, :not_found}
@@ -837,7 +839,9 @@ defmodule Expi.Agent.Callbacks do
 
     current =
       case :ets.lookup(@stats_table, callback_id) do
-        [{^callback_id, stats}] -> stats
+        [{^callback_id, stats}] ->
+          stats
+
         [] ->
           %{
             invocation_count: 0,

@@ -129,7 +129,9 @@ defmodule Expi.AI.IntegrationTest do
           content_text =
             Enum.reduce(events, "", fn event, acc ->
               case event.type do
-                :text_delta -> acc <> event.delta
+                :text_delta ->
+                  acc <> event.delta
+
                 :done ->
                   # Verify final message
                   assert event.message.role == :assistant
@@ -137,7 +139,8 @@ defmodule Expi.AI.IntegrationTest do
                   assert event.message.usage.output > 0
                   acc
 
-                _ -> acc
+                _ ->
+                  acc
               end
             end)
 

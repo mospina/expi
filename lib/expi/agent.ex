@@ -505,7 +505,9 @@ defmodule Expi.Agent do
     case Loop.process_single_turn(agent_state, agent_options, loop_options) do
       {:ok, updated_agent_state} ->
         messages = State.get_messages(updated_agent_state)
-        processed_messages = max(State.message_count(updated_agent_state) - initial_message_count, 0)
+
+        processed_messages =
+          max(State.message_count(updated_agent_state) - initial_message_count, 0)
 
         tools_executed =
           Enum.count(messages, fn msg ->

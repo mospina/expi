@@ -15,7 +15,10 @@ defmodule Expi.SessionExtensibilityTest do
             name: "echo",
             description: "Echo command",
             handler: fn args, session, _ctx ->
-              AgentSession.prompt(session, "[echo] " <> args, %{run_conversation: false, expand_resources: false})
+              AgentSession.prompt(session, "[echo] " <> args, %{
+                run_conversation: false,
+                expand_resources: false
+              })
             end
           }
         ],
@@ -61,8 +64,11 @@ defmodule Expi.SessionExtensibilityTest do
         enable_resources: true
       })
 
-    {:ok, session} = AgentSession.prompt(session, "/review alpha beta", %{run_conversation: false})
-    {:ok, session} = AgentSession.prompt(session, "/skill:release-notes prepare v1", %{run_conversation: false})
+    {:ok, session} =
+      AgentSession.prompt(session, "/review alpha beta", %{run_conversation: false})
+
+    {:ok, session} =
+      AgentSession.prompt(session, "/skill:release-notes prepare v1", %{run_conversation: false})
 
     user_messages = Enum.filter(AgentSession.messages(session), &(&1.role == :user))
     [first, second | _] = user_messages
@@ -159,7 +165,12 @@ defmodule Expi.SessionExtensibilityTest do
   end
 
   defp temp_cwd!(suffix) do
-    dir = Path.join(System.tmp_dir!(), "expi-session-ext-test-#{suffix}-#{System.unique_integer([:positive])}")
+    dir =
+      Path.join(
+        System.tmp_dir!(),
+        "expi-session-ext-test-#{suffix}-#{System.unique_integer([:positive])}"
+      )
+
     File.mkdir_p!(dir)
     dir
   end

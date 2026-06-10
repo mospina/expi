@@ -142,7 +142,11 @@ defmodule Expi.Session.ResourceLoader do
       if loader.include_defaults do
         [
           %{path: Path.join(loader.agent_dir, "prompts"), source: :user, location: :user},
-          %{path: Path.join([loader.cwd, config_dir_name(), "prompts"]), source: :project, location: :project}
+          %{
+            path: Path.join([loader.cwd, config_dir_name(), "prompts"]),
+            source: :project,
+            location: :project
+          }
         ]
       else
         []
@@ -150,7 +154,9 @@ defmodule Expi.Session.ResourceLoader do
 
     explicit =
       loader.prompt_paths
-      |> Enum.map(fn p -> %{path: resolve_path(loader.cwd, p), source: :path, location: :path} end)
+      |> Enum.map(fn p ->
+        %{path: resolve_path(loader.cwd, p), source: :path, location: :path}
+      end)
 
     dedupe_sources(defaults ++ explicit)
   end
@@ -160,7 +166,11 @@ defmodule Expi.Session.ResourceLoader do
       if loader.include_defaults do
         [
           %{path: Path.join(loader.agent_dir, "skills"), source: :user, location: :user},
-          %{path: Path.join([loader.cwd, config_dir_name(), "skills"]), source: :project, location: :project}
+          %{
+            path: Path.join([loader.cwd, config_dir_name(), "skills"]),
+            source: :project,
+            location: :project
+          }
         ] ++ compatibility_skill_sources(loader)
       else
         []
@@ -168,17 +178,25 @@ defmodule Expi.Session.ResourceLoader do
 
     explicit =
       loader.skill_paths
-      |> Enum.map(fn p -> %{path: resolve_path(loader.cwd, p), source: :path, location: :path} end)
+      |> Enum.map(fn p ->
+        %{path: resolve_path(loader.cwd, p), source: :path, location: :path}
+      end)
 
     dedupe_sources(defaults ++ explicit)
   end
 
   defp compatibility_skill_sources(loader) do
-    user_agents = %{path: Path.join(System.user_home!(), ".agents/skills"), source: :user, location: :user}
+    user_agents = %{
+      path: Path.join(System.user_home!(), ".agents/skills"),
+      source: :user,
+      location: :user
+    }
 
     ancestors =
       ancestor_dirs(loader.cwd)
-      |> Enum.map(fn dir -> %{path: Path.join(dir, ".agents/skills"), source: :project, location: :project} end)
+      |> Enum.map(fn dir ->
+        %{path: Path.join(dir, ".agents/skills"), source: :project, location: :project}
+      end)
 
     [user_agents | ancestors]
   end
@@ -201,9 +219,17 @@ defmodule Expi.Session.ResourceLoader do
 
   defp prompt_source_files(%{path: path}) do
     cond do
-      not File.exists?(path) -> []
-      File.dir?(path) -> path |> File.ls!() |> Enum.filter(&String.ends_with?(&1, ".md")) |> Enum.map(&Path.join(path, &1))
-      true -> [path]
+      not File.exists?(path) ->
+        []
+
+      File.dir?(path) ->
+        path
+        |> File.ls!()
+        |> Enum.filter(&String.ends_with?(&1, ".md"))
+        |> Enum.map(&Path.join(path, &1))
+
+      true ->
+        [path]
     end
   end
 
@@ -326,7 +352,8 @@ defmodule Expi.Session.ResourceLoader do
     }
   end
 
-  defp finalize_resource_accumulator({resources, diagnostics, _names}), do: {resources, diagnostics}
+  defp finalize_resource_accumulator({resources, diagnostics, _names}),
+    do: {resources, diagnostics}
 
   defp collect_skill_files(dir) do
     do_collect_skill_files(dir, true)
@@ -348,7 +375,7 @@ defmodule Expi.Session.ResourceLoader do
         include_root_files and String.ends_with?(entry, ".md") ->
           [full]
 
-        (not include_root_files) and entry == "SKILL.md" ->
+        not include_root_files and entry == "SKILL.md" ->
           [full]
 
         true ->

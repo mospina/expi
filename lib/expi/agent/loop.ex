@@ -520,28 +520,28 @@ defmodule Expi.Agent.Loop do
     if loop_state.status in [:error, :aborted, :stopped_incomplete] do
       {:ok, loop_state}
     else
-    # Check if there are pending tool calls to execute
-    pending_tools = State.get_pending_tool_calls(loop_state.agent_state)
+      # Check if there are pending tool calls to execute
+      pending_tools = State.get_pending_tool_calls(loop_state.agent_state)
 
-    if MapSet.size(pending_tools) > 0 do
-      Logger.debug("Processing tool calls", %{
-        tool_count: MapSet.size(pending_tools),
-        turn: loop_state.current_turn
-      })
+      if MapSet.size(pending_tools) > 0 do
+        Logger.debug("Processing tool calls", %{
+          tool_count: MapSet.size(pending_tools),
+          turn: loop_state.current_turn
+        })
 
-      # Execute tools and update state
-      case execute_pending_tools(loop_state, event_callback) do
-        {:ok, updated_loop_state} ->
-          {:ok, updated_loop_state}
+        # Execute tools and update state
+        case execute_pending_tools(loop_state, event_callback) do
+          {:ok, updated_loop_state} ->
+            {:ok, updated_loop_state}
 
-        {:error, reason} = error ->
-          Logger.error("Tool execution failed", %{reason: inspect(reason)})
-          error
+          {:error, reason} = error ->
+            Logger.error("Tool execution failed", %{reason: inspect(reason)})
+            error
+        end
+      else
+        # No tools to execute
+        {:ok, loop_state}
       end
-    else
-      # No tools to execute
-      {:ok, loop_state}
-    end
     end
   end
 
@@ -593,6 +593,7 @@ defmodule Expi.Agent.Loop do
         {updated_loop_state, true}
     end
   end
+
   defp last_message_requires_response?(agent_state) do
     case State.get_messages(agent_state) do
       [] ->
@@ -641,6 +642,7 @@ defmodule Expi.Agent.Loop do
         {:ok, updated_loop_state}
     end
   end
+
   @spec execute_pending_tools(loop_state(), function() | nil) ::
           {:ok, loop_state()} | {:error, any()}
   defp execute_pending_tools(loop_state, event_callback) do
@@ -667,7 +669,13 @@ defmodule Expi.Agent.Loop do
 
     case tool_strategy do
       :sequential ->
-        execute_tools_sequentially(loop_state, tool_calls, available_tools, tool_timeout, tool_callback)
+        execute_tools_sequentially(
+          loop_state,
+          tool_calls,
+          available_tools,
+          tool_timeout,
+          tool_callback
+        )
 
       _ ->
         execute_tools_concurrently(
@@ -682,7 +690,13 @@ defmodule Expi.Agent.Loop do
     end
   end
 
-  defp execute_tools_sequentially(loop_state, tool_calls, available_tools, tool_timeout, tool_callback) do
+  defp execute_tools_sequentially(
+         loop_state,
+         tool_calls,
+         available_tools,
+         tool_timeout,
+         tool_callback
+       ) do
     {results, _remaining, executed_count} =
       execute_tools_with_steering_interrupt(
         tool_calls,
@@ -791,13 +805,21 @@ defmodule Expi.Agent.Loop do
   defp maybe_put_opt(opts, _key, nil), do: opts
   defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
 
-  defp execute_tools_with_steering_interrupt(tool_calls, available_tools, tool_timeout, tool_callback, agent_state) do
+  defp execute_tools_with_steering_interrupt(
+         tool_calls,
+         available_tools,
+         tool_timeout,
+         tool_callback,
+         agent_state
+       ) do
     tool_map =
       available_tools
       |> Enum.map(fn tool -> {Expi.Agent.Types.AgentTool.name(tool), tool} end)
       |> Map.new()
 
-    Enum.reduce_while(Enum.with_index(tool_calls), {[], tool_calls, 0}, fn {tool_call, idx}, {acc, _remaining, executed} ->
+    Enum.reduce_while(Enum.with_index(tool_calls), {[], tool_calls, 0}, fn {tool_call, idx},
+                                                                           {acc, _remaining,
+                                                                            executed} ->
       if should_interrupt_for_steering?(agent_state, idx) do
         skipped = tool_calls |> Enum.drop(idx) |> Enum.map(&skipped_tool_result/1)
         {:halt, {acc ++ skipped, [], executed}}
@@ -826,7 +848,9 @@ defmodule Expi.Agent.Loop do
     end
   end
 
-  defp maybe_emit_tool_callback(callback, tool_result) when is_function(callback), do: callback.(tool_result)
+  defp maybe_emit_tool_callback(callback, tool_result) when is_function(callback),
+    do: callback.(tool_result)
+
   defp maybe_emit_tool_callback(_callback, _tool_result), do: :ok
 
   defp skipped_tool_result(tool_call) do

@@ -16,10 +16,17 @@ defmodule Expi.SessionBuiltinToolsTest do
 
   test "tool_mode :none disables built-ins but keeps caller tools" do
     {:ok, custom_tool} =
-      Expi.Agent.Tool.text_tool("custom", "custom", %{type: :object}, fn _, _, _, _ -> {:ok, "ok"} end)
+      Expi.Agent.Tool.text_tool("custom", "custom", %{type: :object}, fn _, _, _, _ ->
+        {:ok, "ok"}
+      end)
 
     {:ok, %{session: session}} =
-      Session.create_session(%{model: demo_model(), in_memory: true, tool_mode: :none, tools: [custom_tool]})
+      Session.create_session(%{
+        model: demo_model(),
+        in_memory: true,
+        tool_mode: :none,
+        tools: [custom_tool]
+      })
 
     names = session |> AgentSession.state() |> Agent.get_tools() |> Enum.map(& &1.function.name)
     assert names == ["custom"]
@@ -27,7 +34,11 @@ defmodule Expi.SessionBuiltinToolsTest do
 
   test "tool_mode {:only, names} selects subset deterministically" do
     {:ok, %{session: session}} =
-      Session.create_session(%{model: demo_model(), in_memory: true, tool_mode: {:only, ["read", "ls"]}})
+      Session.create_session(%{
+        model: demo_model(),
+        in_memory: true,
+        tool_mode: {:only, ["read", "ls"]}
+      })
 
     names = session |> AgentSession.state() |> Agent.get_tools() |> Enum.map(& &1.function.name)
     assert names == ["read", "ls"]
@@ -35,7 +46,9 @@ defmodule Expi.SessionBuiltinToolsTest do
 
   test "caller tool overrides built-in by name" do
     {:ok, override} =
-      Expi.Agent.Tool.text_tool("read", "override", %{type: :object}, fn _, _, _, _ -> {:ok, "override"} end)
+      Expi.Agent.Tool.text_tool("read", "override", %{type: :object}, fn _, _, _, _ ->
+        {:ok, "override"}
+      end)
 
     {:ok, %{session: session}} =
       Session.create_session(%{model: demo_model(), in_memory: true, tools: [override]})
@@ -54,7 +67,9 @@ defmodule Expi.SessionBuiltinToolsTest do
 
     diagnostics = AgentSession.get_diagnostics(session)
 
-    assert Enum.any?(diagnostics, fn d -> d.source == "builtin_tools" and d.message =~ "unknown built-in tool" end)
+    assert Enum.any?(diagnostics, fn d ->
+             d.source == "builtin_tools" and d.message =~ "unknown built-in tool"
+           end)
   end
 
   defp demo_model do

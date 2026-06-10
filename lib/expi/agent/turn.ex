@@ -399,7 +399,10 @@ defmodule Expi.Agent.Turn do
     tool_calls = turn_context.extracted_tools
 
     if is_nil(assistant_message) or (assistant_message.content == [] and tool_calls == []) do
-      Logger.warning("Empty turn result after tool/user input; returning guarded empty turn result")
+      Logger.warning(
+        "Empty turn result after tool/user input; returning guarded empty turn result"
+      )
+
       {:error, :empty_turn_result}
     else
       updated_state = State.add_message(agent_state, assistant_message)
@@ -438,7 +441,8 @@ defmodule Expi.Agent.Turn do
   defp process_stream_event(%{type: :thinking_delta} = event, stream_state, _event_callback),
     do: handle_thinking_delta(event, stream_state)
 
-  defp process_stream_event(%{type: :thinking_end}, stream_state, _event_callback), do: stream_state
+  defp process_stream_event(%{type: :thinking_end}, stream_state, _event_callback),
+    do: stream_state
 
   defp process_stream_event(%{type: :toolcall_start} = event, stream_state, _event_callback),
     do: handle_toolcall_start(event, stream_state)
@@ -485,7 +489,10 @@ defmodule Expi.Agent.Turn do
     text_content = %{type: :text, text: updated_buffer}
 
     updated_content =
-      [text_content | Enum.reject(stream_state.partial_message.content, &match?(%{type: :text}, &1))]
+      [
+        text_content
+        | Enum.reject(stream_state.partial_message.content, &match?(%{type: :text}, &1))
+      ]
 
     updated_message = %{stream_state.partial_message | content: updated_content}
     emit_message_update(updated_message, event, event_callback)
@@ -533,7 +540,10 @@ defmodule Expi.Agent.Turn do
     thinking_content = %{type: :thinking, thinking: updated_thinking}
 
     updated_content =
-      [thinking_content | Enum.reject(stream_state.partial_message.content, &match?(%{type: :thinking}, &1))]
+      [
+        thinking_content
+        | Enum.reject(stream_state.partial_message.content, &match?(%{type: :thinking}, &1))
+      ]
 
     updated_message = %{stream_state.partial_message | content: updated_content}
     %{stream_state | thinking_buffer: updated_thinking, partial_message: updated_message}
@@ -559,7 +569,8 @@ defmodule Expi.Agent.Turn do
     }
   end
 
-  defp build_tool_data(_), do: %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""}
+  defp build_tool_data(_),
+    do: %{id: generate_tool_call_id(), name: "unknown", arguments: %{}, partial_json: ""}
 
   defp handle_toolcall_delta(event, stream_state) do
     index = event.content_index || 0
@@ -575,7 +586,9 @@ defmodule Expi.Agent.Turn do
       add_tool_call_content(stream_state, event.tool_call)
     else
       case finalize_tool_call_from_buffer(stream_state, event.content_index) do
-        {:ok, updated_state} -> updated_state
+        {:ok, updated_state} ->
+          updated_state
+
         :not_found ->
           Logger.warning("toolcall_end event missing tool_call payload")
           stream_state
@@ -586,7 +599,11 @@ defmodule Expi.Agent.Turn do
   defp handle_stream_done(event, stream_state) do
     final_message = %{
       stream_state.partial_message
-      | usage: if(is_map(event.message), do: event.message.usage, else: stream_state.partial_message.usage),
+      | usage:
+          if(is_map(event.message),
+            do: event.message.usage,
+            else: stream_state.partial_message.usage
+          ),
         stop_reason: event.reason,
         timestamp: System.system_time(:millisecond)
     }
@@ -676,7 +693,8 @@ defmodule Expi.Agent.Turn do
     process_streaming_response(model, context, event_callback)
   end
 
-  defp stream_with_optional_fn(model, context, stream_fn, event_callback) when is_function(stream_fn, 2) do
+  defp stream_with_optional_fn(model, context, stream_fn, event_callback)
+       when is_function(stream_fn, 2) do
     process_streaming_response_with_fn(model, context, stream_fn, event_callback)
   end
 
