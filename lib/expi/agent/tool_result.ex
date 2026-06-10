@@ -919,10 +919,10 @@ defmodule Expi.Agent.ToolResult do
     results
     |> Enum.with_index()
     |> Enum.flat_map(fn {result, index} ->
-      if not is_list(result.content) do
-        ["Result #{index}: content is not a list"]
-      else
+      if is_list(result.content) do
         []
+      else
+        ["Result #{index}: content is not a list"]
       end
     end)
   end

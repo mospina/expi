@@ -35,6 +35,18 @@ defmodule Expi.SessionTest do
     assert Enum.any?(entries, &(Map.get(&1, :type) == :thinking_level_change))
   end
 
+  test "create_session resolves model from provider and model_id" do
+    {:ok, result} =
+      Session.create_session(%{
+        provider: "anthropic",
+        model_id: "claude-sonnet-3-6",
+        in_memory: true
+      })
+
+    assert %AgentSession{} = result.session
+    assert result.model_fallback_message == nil
+  end
+
   test "create_session returns error when no model is supplied" do
     assert {:error, :model_required} = Session.create_session(%{in_memory: true})
   end

@@ -64,17 +64,9 @@ defmodule Expi.Session.BuiltinTools do
         "Read file contents from a path",
         %{type: :object, properties: %{path: %{type: :string}}, required: ["path"]},
         fn _id, params, _abort, _update ->
-          path = get_param(params, "path")
-
-          case path do
-            nil ->
-              {:error, :missing_path}
-
-            _ ->
-              case File.read(path) do
-                {:ok, content} -> {:ok, content}
-                {:error, reason} -> {:ok, "read failed: #{inspect(reason)}"}
-              end
+          case get_param(params, "path") do
+            nil -> {:error, :missing_path}
+            path -> read_path(path)
           end
         end
       )
@@ -93,23 +85,10 @@ defmodule Expi.Session.BuiltinTools do
           required: ["path", "content"]
         },
         fn _id, params, _abort, _update ->
-          path = get_param(params, "path")
-          content = get_param(params, "content")
-
-          cond do
-            is_nil(path) ->
-              {:error, :missing_path}
-
-            is_nil(content) ->
-              {:error, :missing_content}
-
-            true ->
-              with :ok <- ensure_parent(path),
-                   :ok <- File.write(path, content) do
-                {:ok, "wrote #{byte_size(content)} bytes to #{path}"}
-              else
-                {:error, reason} -> {:ok, "write failed: #{inspect(reason)}"}
-              end
+          case {get_param(params, "path"), get_param(params, "content")} do
+            {nil, _} -> {:error, :missing_path}
+            {_, nil} -> {:error, :missing_content}
+            {path, content} -> write_content(path, content)
           end
         end
       )
@@ -250,6 +229,22 @@ defmodule Expi.Session.BuiltinTools do
     Map.get(params, key) || Map.get(params, String.to_atom(key))
   rescue
     ArgumentError -> Map.get(params, key)
+  end
+
+  defp read_path(path) do
+    case File.read(path) do
+      {:ok, content} -> {:ok, content}
+      {:error, reason} -> {:ok, "read failed: #{inspect(reason)}"}
+    end
+  end
+
+  defp write_content(path, content) do
+    with :ok <- ensure_parent(path),
+         :ok <- File.write(path, content) do
+      {:ok, "wrote #{byte_size(content)} bytes to #{path}"}
+    else
+      {:error, reason} -> {:ok, "write failed: #{inspect(reason)}"}
+    end
   end
 
   defp ensure_parent(path) do

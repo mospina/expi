@@ -2,9 +2,41 @@ defmodule Expi.SessionBuiltinToolsTest do
   use ExUnit.Case
 
   alias Expi.Agent
+  alias Expi.Agent.Tool
   alias Expi.Session
   alias Expi.Session.AgentSession
   alias Expi.Types.{Cost, Model}
+
+  test "read built-in returns file contents" do
+    path = Path.join(System.tmp_dir!(), "expi_builtin_read_#{System.unique_integer([:positive])}.txt")
+
+    try do
+      File.write!(path, "hello built-in read")
+
+      {:ok, tool} = Expi.Session.BuiltinTools.fetch("read")
+      {:ok, result} = Tool.execute(tool, "call_1", %{"path" => path})
+
+      assert [%{text: "hello built-in read"}] = Enum.map(result.content, &Map.from_struct/1)
+    after
+      File.rm(path)
+    end
+  end
+
+  test "write built-in creates parent directories and writes content" do
+    dir = Path.join(System.tmp_dir!(), "expi_builtin_write_#{System.unique_integer([:positive])}")
+    path = Path.join([dir, "nested", "output.txt"])
+
+    try do
+      {:ok, tool} = Expi.Session.BuiltinTools.fetch("write")
+      {:ok, result} = Tool.execute(tool, "call_2", %{"path" => path, "content" => "hello write"})
+
+      assert [%{text: text}] = Enum.map(result.content, &Map.from_struct/1)
+      assert text =~ "wrote"
+      assert File.read!(path) == "hello write"
+    after
+      File.rm_rf(dir)
+    end
+  end
 
   test "default tool exposure includes read,bash,edit,write" do
     {:ok, %{session: session}} = Session.create_session(%{model: demo_model(), in_memory: true})

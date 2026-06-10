@@ -3,6 +3,7 @@ defmodule Expi.SessionExtensibilityTest do
 
   alias Expi.Session
   alias Expi.Session.AgentSession
+  alias Expi.Session.ExtensionRunner
   alias Expi.Types.{Cost, Model, TextContent}
 
   defmodule TestExtension do
@@ -35,6 +36,12 @@ defmodule Expi.SessionExtensibilityTest do
         }
       }
     end
+  end
+
+  defmodule DisabledExtension do
+    @behaviour Expi.Session.Extension
+
+    def register(_ctx), do: raise("register/1 should not be called when extensions are disabled")
   end
 
   test "resource loader expands prompt templates and skills" do
@@ -99,6 +106,17 @@ defmodule Expi.SessionExtensibilityTest do
 
     assert extract_text(first) == "[echo] hello"
     assert extract_text(second) == "MAKE ME LOUD"
+  end
+
+  test "disabled extension runtime records diagnostics when extensions are configured" do
+    runner = ExtensionRunner.new(%{enabled: false, extensions: [DisabledExtension]})
+
+    diagnostics = ExtensionRunner.get_diagnostics(runner)
+
+    assert Enum.any?(diagnostics, fn d ->
+             d.source == "extensions" and d.severity == :warning and
+               d.message =~ "extension runtime is disabled"
+           end)
   end
 
   test "command inventory includes extension, prompt, and skill sources" do

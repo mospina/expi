@@ -96,15 +96,13 @@ defmodule Expi.Session do
     provider = Map.get(options, :provider)
     model_id = Map.get(options, :model_id)
 
-    cond do
-      is_binary(provider) and is_binary(model_id) ->
-        case Expi.AI.get_model(provider, model_id) do
-          {:ok, model} -> {:ok, model, nil}
-          {:error, reason} -> {:error, reason}
-        end
-
-      true ->
-        {:error, :model_required}
+    if is_binary(provider) and is_binary(model_id) do
+      case Expi.AI.get_model(provider, model_id) do
+        {:ok, model} -> {:ok, model, nil}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, :model_required}
     end
   end
 

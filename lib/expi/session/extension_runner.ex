@@ -45,7 +45,11 @@ defmodule Expi.Session.ExtensionRunner do
 
   @spec load_extensions(t(), [extension_module()], map()) :: t()
   def load_extensions(%__MODULE__{} = runner, extensions, context \\ %{}) do
-    if not runner.enabled do
+    if runner.enabled do
+      Enum.reduce(extensions, runner, fn extension, acc ->
+        register_extension(acc, extension, context)
+      end)
+    else
       if extensions != [] do
         diag = %ResourceDiagnostic{
           severity: :warning,
@@ -57,10 +61,6 @@ defmodule Expi.Session.ExtensionRunner do
       else
         runner
       end
-    else
-      Enum.reduce(extensions, runner, fn extension, acc ->
-        register_extension(acc, extension, context)
-      end)
     end
   end
 
