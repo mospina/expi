@@ -88,7 +88,7 @@ defmodule Expi.Agent.Config do
       assert config.max_retry_delay_ms == 30_000
   """
   @spec default() :: AgentOptions.t()
-  def default() do
+  def default do
     AgentOptions.default()
   end
 

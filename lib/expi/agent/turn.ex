@@ -685,7 +685,7 @@ defmodule Expi.Agent.Turn do
   end
 
   @spec generate_tool_call_id() :: String.t()
-  defp generate_tool_call_id() do
+  defp generate_tool_call_id do
     "call_" <> (:crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower))
   end
 

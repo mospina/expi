@@ -691,7 +691,7 @@ defmodule Expi.Agent.Events do
   defp validate_message_event(_), do: :ok
 
   @spec generate_emitter_id() :: String.t()
-  defp generate_emitter_id() do
+  defp generate_emitter_id do
     :crypto.strong_rand_bytes(8)
     |> Base.url_encode64(padding: false)
     |> String.slice(0, 12)

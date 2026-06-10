@@ -789,13 +789,13 @@ defmodule Expi.Agent.ToolExecutor do
   end
 
   @spec generate_execution_id() :: execution_id()
-  defp generate_execution_id() do
+  defp generate_execution_id do
     :crypto.strong_rand_bytes(8)
     |> Base.url_encode64(padding: false)
     |> String.slice(0, 12)
   end
 
-  defp ensure_execution_table() do
+  defp ensure_execution_table do
     case :ets.whereis(@execution_table) do
       :undefined -> :ets.new(@execution_table, [:named_table, :public, :set])
       _tid -> :ok

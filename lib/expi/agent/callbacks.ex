@@ -112,7 +112,7 @@ defmodule Expi.Agent.Callbacks do
       Callbacks.invoke_callbacks(registry, event)
   """
   @spec create_registry() :: callback_registry()
-  def create_registry() do
+  def create_registry do
     %{
       callbacks: %{},
       stats: %{},
@@ -818,14 +818,14 @@ defmodule Expi.Agent.Callbacks do
   defp is_callback_healthy?(_), do: false
 
   @spec generate_callback_id() :: String.t()
-  defp generate_callback_id() do
+  defp generate_callback_id do
     :crypto.strong_rand_bytes(8)
     |> Base.url_encode64(padding: false)
     |> String.slice(0, 12)
     |> String.downcase()
   end
 
-  defp ensure_stats_table() do
+  defp ensure_stats_table do
     case :ets.whereis(@stats_table) do
       :undefined -> :ets.new(@stats_table, [:named_table, :public, :set])
       _tid -> :ok

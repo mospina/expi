@@ -67,7 +67,7 @@ defmodule Expi.Agent.Queue do
       assert queue.created_at > 0
   """
   @spec create_queue() :: message_queue()
-  def create_queue() do
+  def create_queue do
     %{
       steering: [],
       follow_up: [],

@@ -269,7 +269,7 @@ defmodule Expi.Agent.Types do
     Creates an agent start event.
     """
     @spec agent_start() :: t()
-    def agent_start() do
+    def agent_start do
       %__MODULE__{type: :agent_start}
     end
 
@@ -285,7 +285,7 @@ defmodule Expi.Agent.Types do
     Creates a turn start event.
     """
     @spec turn_start() :: t()
-    def turn_start() do
+    def turn_start do
       %__MODULE__{type: :turn_start}
     end
 
@@ -425,7 +425,7 @@ defmodule Expi.Agent.Types do
     Creates default agent options.
     """
     @spec default() :: t()
-    def default() do
+    def default do
       %__MODULE__{}
     end
 
@@ -455,5 +455,5 @@ defmodule Expi.Agent.Types do
   All supported thinking levels.
   """
   @spec thinking_levels() :: [thinking_level()]
-  def thinking_levels(), do: @valid_thinking_levels
+  def thinking_levels, do: @valid_thinking_levels
 end
