@@ -61,7 +61,7 @@ defmodule Expi.Agent.Queue do
   ## Examples
 
       queue = Queue.create_queue()
-      
+
       # Queue starts empty with timestamps
       assert Queue.is_empty?(queue)
       assert queue.created_at > 0
@@ -94,11 +94,11 @@ defmodule Expi.Agent.Queue do
       # Add urgent steering message
       user_interrupt = Message.user("Stop that and do this instead")
       updated_queue = Queue.add_message(queue, user_interrupt, :steering)
-      
+
       # Add follow-up question
       follow_up_question = Message.user("Can you also explain how this works?")
       updated_queue = Queue.add_message(queue, follow_up_question, :follow_up)
-      
+
       # System steering message
       system_msg = Message.user("[SYSTEM] Processing interrupted")
       updated_queue = Queue.add_message(queue, system_msg, :steering)
@@ -125,7 +125,7 @@ defmodule Expi.Agent.Queue do
       # User interruption
       interrupt_msg = Message.user("Cancel that and help me with this urgent issue")
       updated_queue = Queue.add_steering(queue, interrupt_msg)
-      
+
       # System alert
       alert_msg = Message.user("[ALERT] Memory usage high, please reduce complexity")
       updated_queue = Queue.add_steering(queue, alert_msg)
@@ -146,7 +146,7 @@ defmodule Expi.Agent.Queue do
       # Natural follow-up question
       follow_up = Message.user("That's helpful! Can you give me an example?")
       updated_queue = Queue.add_follow_up(queue, follow_up)
-      
+
       # Additional request
       extra_request = Message.user("Also, can you format that as a table?")
       updated_queue = Queue.add_follow_up(queue, extra_request)
@@ -172,10 +172,10 @@ defmodule Expi.Agent.Queue do
 
       # Get all steering messages
       steering_messages = Queue.get_messages(queue, :steering)
-      
+
       # Get up to 5 follow-up messages
       follow_ups = Queue.get_messages(queue, :follow_up, 5)
-      
+
       # Check for any urgent messages
       if Queue.has_steering?(queue) do
         urgent = Queue.get_messages(queue, :steering, 1)
@@ -207,7 +207,7 @@ defmodule Expi.Agent.Queue do
 
       # Clear all steering messages after processing
       cleared_queue = Queue.clear_queue(queue, :steering)
-      
+
       # Clear first 3 follow-up messages
       partial_clear = Queue.clear_queue(queue, :follow_up, 3)
   """
@@ -295,10 +295,10 @@ defmodule Expi.Agent.Queue do
 
       # Drain all steering messages for immediate processing
       {messages, updated_queue} = Queue.drain_queue(queue, :steering, :all)
-      
+
       # Drain one follow-up message for natural pacing
       {messages, updated_queue} = Queue.drain_queue(queue, :follow_up, :one_at_a_time)
-      
+
       # Process based on mode configuration
       processing_mode = get_agent_processing_mode()
       {batch, new_queue} = Queue.drain_queue(queue, :follow_up, processing_mode)
@@ -344,16 +344,16 @@ defmodule Expi.Agent.Queue do
 
       # Process all urgent messages, one follow-up at a time
       result = Queue.process_by_mode(queue, :all, :one_at_a_time)
-      
+
       case result do
         {:steering, messages, updated_queue} ->
           # Handle urgent interruption
           process_steering_messages(messages)
-          
+
         {:follow_up, messages, updated_queue} ->
           # Handle natural follow-up
           process_follow_up_messages(messages)
-          
+
         {:empty, updated_queue} ->
           # No messages to process
           agent_idle()
@@ -391,7 +391,7 @@ defmodule Expi.Agent.Queue do
 
       # Merge queues from different sources
       combined_queue = Queue.merge_queues(primary_queue, secondary_queue)
-      
+
       # Merge temporary queue back into main queue
       main_queue = Queue.merge_queues(main_queue, temp_queue)
   """
@@ -414,12 +414,12 @@ defmodule Expi.Agent.Queue do
   ## Examples
 
       stats = Queue.queue_stats(queue)
-      
+
       IO.puts("Total messages: " <> to_string(stats.total_count))
       IO.puts("Steering: " <> to_string(stats.steering_count))
       IO.puts("Follow-up: " <> to_string(stats.follow_up_count))
       IO.puts("Queue age: " <> to_string(stats.queue_age) <> "ms")
-      
+
       # Check for queue health
       if stats.total_count > 50 do
         Logger.warning("Message queue getting large", stats)
@@ -459,7 +459,7 @@ defmodule Expi.Agent.Queue do
   ## Examples
 
       queue_size = Queue.queue_size(queue)
-      
+
       if queue_size > max_queue_size do
         apply_backpressure()
       end
@@ -482,7 +482,7 @@ defmodule Expi.Agent.Queue do
       filtered_queue = Queue.filter_messages(queue, fn message ->
         Message.timestamp(message) > cutoff_time
       end)
-      
+
       # Remove system messages
       user_only_queue = Queue.filter_messages(queue, fn message ->
         not String.starts_with?(Message.content(message), "[SYSTEM]")
@@ -506,7 +506,7 @@ defmodule Expi.Agent.Queue do
 
       # Limit total queue size
       managed_queue = Queue.apply_backpressure(queue, max_size: 100)
-      
+
       # Limit by queue type
       managed_queue = Queue.apply_backpressure(queue,
         max_steering: 20,

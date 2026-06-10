@@ -2,18 +2,18 @@ defmodule Expi do
   @moduledoc """
   Expi - Elixir AI Module
 
-  A production-ready Elixir module for interfacing with Large Language Models (LLMs), 
-  supporting **Anthropic Claude**, **Google Gemini**, and **Ollama** providers with 
+  A production-ready Elixir module for interfacing with Large Language Models (LLMs),
+  supporting **Anthropic Claude**, **Google Gemini**, and **Ollama** providers with
   comprehensive streaming, multi-modal, and tool calling capabilities.
 
   ## Quick Start
 
       alias Expi.AI
       alias Expi.Types.{Context, UserMessage}
-      
+
       # Get a model
       {:ok, model} = AI.get_model("anthropic", "claude-sonnet-3-6")
-      
+
       # Create a context
       context = %Context{
         messages: [
@@ -24,13 +24,13 @@ defmodule Expi do
           }
         ]
       }
-      
+
       # Synchronous completion
       {:ok, response} = AI.complete_simple(model, context)
-      
+
       # Streaming completion
       {:ok, stream} = AI.stream_simple(model, context)
-      
+
   ## Main Modules
 
   - `Expi.AI` - Main API for model interactions
@@ -71,7 +71,7 @@ defmodule Expi do
 
       iex> Expi.version()
       "0.1.0"
-      
+
   """
   @spec version() :: String.t()
   def version do

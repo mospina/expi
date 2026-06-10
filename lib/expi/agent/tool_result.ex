@@ -59,10 +59,10 @@ defmodule Expi.Agent.ToolResult do
 
       results = [result1, result2, result3, ...]
       analysis = ToolResult.analyze_results(results)
-      
+
       IO.puts("Success rate: " <> to_string(analysis.statistics.success_rate * 100) <> "%")
       IO.puts("Average execution time: " <> to_string(analysis.statistics.average_execution_time) <> "ms")
-      
+
       Enum.each(analysis.patterns, fn pattern ->
         IO.puts("Pattern detected: " <> pattern.description)
       end)
@@ -93,7 +93,7 @@ defmodule Expi.Agent.ToolResult do
   ## Examples
 
       stats = ToolResult.calculate_statistics(results)
-      
+
       if stats.success_rate < 0.8 do
         investigate_failures(results)
       end
@@ -141,9 +141,9 @@ defmodule Expi.Agent.ToolResult do
   ## Examples
 
       patterns = ToolResult.detect_patterns(results)
-      
-      timeout_patterns = Enum.filter(patterns, fn p -> 
-        p.pattern_type == :timeout 
+
+      timeout_patterns = Enum.filter(patterns, fn p ->
+        p.pattern_type == :timeout
       end)
   """
   @spec detect_patterns([ToolResultMessage.t()]) :: [result_pattern()]
@@ -172,14 +172,14 @@ defmodule Expi.Agent.ToolResult do
 
       # Group by success/failure status
       by_status = ToolResult.aggregate_by_criteria(results, group_by: :status)
-      
+
       # Group by tool name, include details, limit to 10 per group
-      by_tool = ToolResult.aggregate_by_criteria(results, 
+      by_tool = ToolResult.aggregate_by_criteria(results,
         group_by: :tool_name,
         include_details: true,
         limit: 10
       )
-      
+
       # Group by execution time ranges
       by_time = ToolResult.aggregate_by_criteria(results, group_by: :execution_time)
   """
@@ -254,10 +254,10 @@ defmodule Expi.Agent.ToolResult do
       # Format for console display
       console_output = ToolResult.format_for_display(results, :console)
       IO.puts(console_output)
-      
+
       # Format for web UI
       ui_data = ToolResult.format_for_display(results, :web_ui)
-      
+
       # Format for logging
       log_entries = ToolResult.format_for_display(results, :log)
   """
@@ -282,10 +282,10 @@ defmodule Expi.Agent.ToolResult do
 
       # Extract all text content
       text_content = ToolResult.extract_content(results, :text)
-      
+
       # Extract images and media
       media_content = ToolResult.extract_content(results, :images)
-      
+
       # Extract all content with metadata
       all_content = ToolResult.extract_content(results, :all)
   """
@@ -305,14 +305,14 @@ defmodule Expi.Agent.ToolResult do
 
       # Get only successful results
       successes = ToolResult.filter_results(results, success: true)
-      
+
       # Get results from specific tools
-      search_results = ToolResult.filter_results(results, 
+      search_results = ToolResult.filter_results(results,
         tool_names: ["web_search", "file_search"]
       )
-      
+
       # Get recent results
-      recent = ToolResult.filter_results(results, 
+      recent = ToolResult.filter_results(results,
         since: System.system_time(:millisecond) - 3600_000
       )
   """
@@ -381,7 +381,7 @@ defmodule Expi.Agent.ToolResult do
   ## Examples
 
       expected_calls = ["call_1", "call_2", "call_3"]
-      
+
       case ToolResult.check_completeness(results, expected_calls) do
         :complete -> all_tools_executed()
         {:incomplete, missing} -> handle_missing_tools(missing)
@@ -411,7 +411,7 @@ defmodule Expi.Agent.ToolResult do
 
       # Merge with latest-wins strategy
       merged = ToolResult.merge_results(results1, results2, strategy: :latest)
-      
+
       # Merge with error-priority (keep error results over success)
       merged = ToolResult.merge_results(results1, results2, strategy: :error_priority)
   """
@@ -450,7 +450,7 @@ defmodule Expi.Agent.ToolResult do
         include_details: true,
         include_recommendations: true
       )
-      
+
       File.write("tool_execution_report.json", Jason.encode!(report))
   """
   @spec create_summary_report([ToolResultMessage.t()], keyword()) :: map()

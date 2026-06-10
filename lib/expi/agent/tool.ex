@@ -18,7 +18,7 @@ defmodule Expi.Agent.Tool do
   - `name` - Tool function name (must be non-empty string)
   - `description` - Human-readable description of what the tool does
   - `parameters` - JSON schema defining the tool's parameters
-  - `label` - Display label for UI (defaults to name if not provided)  
+  - `label` - Display label for UI (defaults to name if not provided)
   - `execute` - Function that executes the tool
 
   ## Examples
@@ -38,20 +38,20 @@ defmodule Expi.Agent.Tool do
         "Web Search",
         fn tool_call_id, params, _abort_signal, _update_callback ->
           query = params["query"]
-          
+
           content = [%Expi.Types.TextContent{
-            type: :text, 
+            type: :text,
             text: "Found results for query: " <> query
           }]
-          
+
           {:ok, %AgentToolResult{content: content, details: %{query: query}}}
         end
       )
-      
-      # Tool with streaming updates  
+
+      # Tool with streaming updates
       {:ok, file_tool} = AgentTool.new(
         "process_file",
-        "Process a large file with progress updates", 
+        "Process a large file with progress updates",
         %{type: :object, properties: %{file_path: %{type: :string}}},
         "File Processor",
         fn _tool_call_id, _params, _abort_signal, _update_callback ->
@@ -62,7 +62,7 @@ defmodule Expi.Agent.Tool do
           }}
         end
       )
-      
+
   ## Returns
 
   - `{:ok, %AgentTool{}}` - Successfully created tool
@@ -141,7 +141,7 @@ defmodule Expi.Agent.Tool do
 
       iex> AgentTool.valid?(tool)
       true
-      
+
       iex> AgentTool.valid?(%{invalid: "structure"})
       false
   """
@@ -173,16 +173,16 @@ defmodule Expi.Agent.Tool do
 
       # Basic execution
       {:ok, result} = AgentTool.execute(search_tool, "call_123", %{"query" => "elixir"})
-      
+
       # With timeout and callback
       {:ok, result} = AgentTool.execute(
-        file_tool, 
-        "call_456", 
+        file_tool,
+        "call_456",
         %{"file_path" => "/tmp/data.csv"},
         timeout: 60_000,
         update_callback: fn partial -> IO.inspect(partial) end
       )
-      
+
       # With cancellation
       abort_pid = spawn(fn -> Process.sleep(5000) end)
       {:ok, result} = AgentTool.execute(
@@ -258,7 +258,7 @@ defmodule Expi.Agent.Tool do
 
       iex> AgentTool.find_by_name([search_tool, file_tool], "web_search")
       {:ok, search_tool}
-      
+
       iex> AgentTool.find_by_name([tool1, tool2], "nonexistent")
       {:error, :tool_not_found}
   """
@@ -280,7 +280,7 @@ defmodule Expi.Agent.Tool do
 
       iex> AgentTool.validate_all([tool1, tool2])
       :ok
-      
+
       iex> AgentTool.validate_all([valid_tool, invalid_tool])
       {:error, {:invalid_tool, 1}}
   """

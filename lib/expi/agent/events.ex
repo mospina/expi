@@ -76,18 +76,18 @@ defmodule Expi.Agent.Events do
       # Basic event emission
       event = AgentEvent.agent_start()
       Events.emit_event(event, callback_list)
-      
+
       # Synchronous emission with timeout
-      Events.emit_event(event, callback_list, 
-        async: false, 
+      Events.emit_event(event, callback_list,
+        async: false,
         timeout: 10_000
       )
-      
+
       # Filtered emission (only send to specific callback types)
       Events.emit_event(event, callback_list,
         filter: fn event -> event.type == :tool_execution_start end
       )
-      
+
       # With additional metadata
       Events.emit_event(event, callback_list,
         metadata: %{agent_id: "agent_123", session: "session_456"}
@@ -156,15 +156,15 @@ defmodule Expi.Agent.Events do
         AgentEvent.message_start(message),
         AgentEvent.tool_execution_start("call_1", "search", %{})
       ]
-      
+
       # Parallel emission (default)
       Events.emit_events(events, callbacks)
-      
+
       # Sequential emission
       Events.emit_events(events, callbacks, mode: :sequential)
-      
+
       # With shared metadata
-      Events.emit_events(events, callbacks, 
+      Events.emit_events(events, callbacks,
         metadata: %{batch_id: "batch_123"}
       )
   """
@@ -219,7 +219,7 @@ defmodule Expi.Agent.Events do
       # System-wide agent shutdown event
       shutdown_event = AgentEvent.agent_end([])
       Events.broadcast_event(shutdown_event, emitter_registry)
-      
+
       # Emergency error event
       error_event = %AgentEvent{type: :system_error, error: "Critical failure"}
       Events.broadcast_event(error_event, emitter_registry, priority: :high)
@@ -260,20 +260,20 @@ defmodule Expi.Agent.Events do
           {:type, :tool_execution_update}
         ]
       })
-      
+
       # Debug emitter that captures everything
       debug_emitter = Events.create_emitter(%{
         id: "debug_all",
         callbacks: [debug_callback],
         filters: []  # No filters - capture all events
       })
-      
+
       # Performance monitoring emitter
       perf_emitter = Events.create_emitter(%{
         id: "performance",
         callbacks: [metrics_callback],
         filters: [
-          fn event -> 
+          fn event ->
             event.type in [:turn_start, :turn_end, :tool_execution_end]
           end
         ]
@@ -308,7 +308,7 @@ defmodule Expi.Agent.Events do
 
       # Detach by callback ID
       updated_emitter = Events.detach_emitter(emitter, callback_id)
-      
+
       # Detach by callback reference
       updated_emitter = Events.detach_emitter(emitter, callback)
   """
@@ -335,12 +335,12 @@ defmodule Expi.Agent.Events do
 
       # Filter by event type
       tool_events = Events.filter_events(events, {:type, :tool_execution_start})
-      
+
       # Filter by custom function
       error_events = Events.filter_events(events, fn event ->
         Map.has_key?(event, :error) and not is_nil(event.error)
       end)
-      
+
       # Filter by pattern matching
       message_events = Events.filter_events(events, {:pattern, %{type: :message_update}})
   """
@@ -364,7 +364,7 @@ defmodule Expi.Agent.Events do
         {fn e -> e.type in [:message_start, :message_end] end, ui_callbacks},
         {fn _ -> true end, debug_callbacks}  # Catch-all rule
       ]
-      
+
       Events.route_events(events, routing_rules, async: true)
   """
   @spec route_events([AgentEvent.t()], [{event_filter(), [Callbacks.callback_spec()]}], keyword()) ::
@@ -395,7 +395,7 @@ defmodule Expi.Agent.Events do
       enriched_events = Events.transform_events(events, fn event ->
         Map.put(event, :processed_at, System.system_time(:millisecond))
       end)
-      
+
       # Add context information
       contextualized_events = Events.transform_events(events, fn event ->
         %{event | metadata: Map.put(event.metadata || %{}, :agent_id, "agent_123")}
@@ -412,7 +412,7 @@ defmodule Expi.Agent.Events do
   ## Examples
 
       summary = Events.event_summary(recent_events)
-      
+
       IO.puts("Events processed: " <> to_string(summary.total_count))
       IO.puts("Tool executions: " <> to_string(summary.by_type.tool_execution_start))
       IO.puts("Error rate: " <> to_string(summary.error_rate * 100) <> "%")
@@ -494,8 +494,8 @@ defmodule Expi.Agent.Events do
 
       # Merge tool execution events
       batch_event = Events.merge_events(tool_events, :tool_execution_batch)
-      
-      # Merge message events  
+
+      # Merge message events
       message_batch = Events.merge_events(message_events, :message_batch)
   """
   @spec merge_events([AgentEvent.t()], atom()) :: AgentEvent.t()

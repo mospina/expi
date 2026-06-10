@@ -15,7 +15,7 @@ defmodule Expi.AI do
 
       # Get a model
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
-      
+
       # Synchronous completion
       context = %Expi.Types.Context{
         messages: [%Expi.Types.UserMessage{
@@ -24,9 +24,9 @@ defmodule Expi.AI do
           timestamp: System.system_time(:millisecond)
         }]
       }
-      
+
       {:ok, response} = Expi.AI.complete_simple(model, context)
-      
+
       # Streaming completion
       {:ok, stream} = Expi.AI.stream_simple(model, context)
   """
@@ -59,26 +59,26 @@ defmodule Expi.AI do
       iex> Expi.AI.get_model("anthropic", "claude-opus-4-5")
       {:ok, %Expi.Types.Model{
         provider: "anthropic",
-        model_id: "claude-opus-4-5", 
+        model_id: "claude-opus-4-5",
         capabilities: [:text, :images, :tools, :reasoning],
         pricing: %{input_tokens: 15.0, output_tokens: 75.0}
       }}
-      
+
       # Vision-enabled model
-      iex> Expi.AI.get_model("google", "gemini-pro-vision") 
+      iex> Expi.AI.get_model("google", "gemini-pro-vision")
       {:ok, %Expi.Types.Model{capabilities: [:text, :images, :tools]}}
-      
+
       # Free local model
       iex> Expi.AI.get_model("ollama", "llama3.1:8b")
       {:ok, %Expi.Types.Model{pricing: %{input_tokens: 0.0, output_tokens: 0.0}}}
-      
-      # Error cases  
+
+      # Error cases
       iex> Expi.AI.get_model("invalid", "model")
       {:error, :unknown_provider}
-      
+
       iex> Expi.AI.get_model("anthropic", "nonexistent")
       {:error, :model_not_found}
-      
+
   ## Available Models
 
   ### Anthropic Claude
@@ -86,7 +86,7 @@ defmodule Expi.AI do
   - `claude-sonnet-3-6` - Balanced performance ($3/$15 per 1M tokens)
 
   ### Google Gemini
-  - `gemini-pro` - General purpose text model  
+  - `gemini-pro` - General purpose text model
   - `gemini-pro-vision` - Multi-modal image understanding
 
   ### Ollama (Local)
@@ -121,7 +121,7 @@ defmodule Expi.AI do
 
       # Basic text completion
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
-      
+
       context = %Expi.Types.Context{
         system_prompt: "You are a helpful assistant",
         messages: [
@@ -132,20 +132,20 @@ defmodule Expi.AI do
           }
         ]
       }
-      
+
       {:ok, response} = Expi.AI.complete_simple(model, context)
-      
+
       # Access response content
       content = response.content |> hd() |> Map.get(:text)
       IO.puts("AI Response: \#{content}")
-      
+
       # Check usage and cost
       IO.puts("Tokens: \#{response.usage.input + response.usage.output}")
       IO.puts("Cost: $\#{response.usage.cost.input + response.usage.cost.output}")
-      
+
       # Multi-modal input with images (Gemini Vision)
       {:ok, vision_model} = Expi.AI.get_model("google", "gemini-pro-vision")
-      
+
       context = %Expi.Types.Context{
         messages: [
           %Expi.Types.UserMessage{
@@ -161,9 +161,9 @@ defmodule Expi.AI do
           }
         ]
       }
-      
+
       {:ok, response} = Expi.AI.complete_simple(vision_model, context)
-      
+
       # Tool calling example
       tools = [
         %Expi.Types.Tool{
@@ -179,48 +179,48 @@ defmodule Expi.AI do
           }
         }
       ]
-      
+
       context = %Expi.Types.Context{
         messages: [%Expi.Types.UserMessage{
-          role: :user, 
+          role: :user,
           content: "What's the weather in Paris?",
           timestamp: System.system_time(:millisecond)
         }],
         tools: tools
       }
-      
+
       {:ok, response} = Expi.AI.complete_simple(model, context)
-      
+
       # Handle tool calls
       Enum.each(response.tool_calls, fn tool_call ->
         IO.puts("Tool: \#{tool_call.name}")
         args = Jason.decode!(tool_call.arguments)
         # Execute your tool function here...
       end)
-      
+
       # With options (temperature, max tokens, etc.)
       {:ok, response} = Expi.AI.complete_simple(model, context, %{
         temperature: 0.7,
         max_tokens: 1000,
         thinking: true  # Enable reasoning mode (Claude only)
       })
-      
+
   ## Error Handling
 
       case Expi.AI.complete_simple(model, context) do
         {:ok, response} ->
           handle_success(response)
-        
+
         {:error, :missing_api_key} ->
           Logger.error("API key not configured")
-          
+
         {:error, :rate_limited} ->
           Logger.warn("Rate limited, retrying later")
           Process.sleep(60_000)
-          
+
         {:error, :network_error} ->
           Logger.warn("Network issue, check connection")
-          
+
         {:error, reason} ->
           Logger.error("Unexpected error: \#{inspect(reason)}")
       end
@@ -279,7 +279,7 @@ defmodule Expi.AI do
   model's response generation process:
 
   **Lifecycle Events:**
-  - `:start` - Stream begins, includes initial message structure  
+  - `:start` - Stream begins, includes initial message structure
   - `:done` - Stream completes, includes final message with usage/cost
   - `:error` - Stream failed, includes error details
 
@@ -289,20 +289,20 @@ defmodule Expi.AI do
   - `:text_end` - Text content block ends
 
   **Reasoning (Claude only):**
-  - `:thinking_start` - Model reasoning begins  
+  - `:thinking_start` - Model reasoning begins
   - `:thinking_delta` - Incremental reasoning content
   - `:thinking_end` - Reasoning process ends
 
   **Tool Calling:**
   - `:toolcall_start` - Tool call initiation
-  - `:toolcall_delta` - Incremental tool call data  
+  - `:toolcall_delta` - Incremental tool call data
   - `:toolcall_end` - Tool call completion
 
   ## Examples
 
       # Basic streaming with real-time text display
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
-      
+
       context = %Expi.Types.Context{
         messages: [%Expi.Types.UserMessage{
           role: :user,
@@ -310,27 +310,27 @@ defmodule Expi.AI do
           timestamp: System.system_time(:millisecond)
         }]
       }
-      
+
       {:ok, stream} = Expi.AI.stream_simple(model, context)
-      
+
       stream
       |> Stream.each(fn event ->
         case event.type do
           :start -> IO.puts("🎯 Composing haiku...")
           :text_delta -> IO.write(event.delta)
-          :done -> 
+          :done ->
             IO.puts("\\n✅ Haiku complete!")
             cost = event.message.usage.cost
             IO.puts("Cost: $" <> to_string(cost.input + cost.output))
         end
       end)
       |> Stream.run()
-      
+
       # Streaming with Claude's reasoning mode
       {:ok, opus} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
-      
+
       {:ok, stream} = Expi.AI.stream_simple(opus, context, %{thinking: true})
-      
+
       stream
       |> Stream.each(fn event ->
         case event.type do
@@ -341,23 +341,23 @@ defmodule Expi.AI do
         end
       end)
       |> Stream.run()
-      
+
       # Accumulate complete response from stream
       {:ok, stream} = Expi.AI.stream_simple(model, context)
-      
-      complete_text = 
+
+      complete_text =
         stream
         |> Stream.filter(& &1.type == :text_delta)
         |> Stream.map(& &1.delta)
         |> Enum.join("")
-      
+
       IO.puts("Complete response: " <> complete_text)
-      
+
       # Phoenix LiveView integration
       def start_streaming(socket, message) do
         {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
         context = build_context(message)
-        
+
         Task.async(fn ->
           case Expi.AI.stream_simple(model, context) do
             {:ok, stream} ->
@@ -368,26 +368,26 @@ defmodule Expi.AI do
               |> Stream.run()
           end
         end)
-        
+
         assign(socket, streaming: true, current_response: "")
       end
-      
-      # Batch processing for performance  
+
+      # Batch processing for performance
       {:ok, stream} = Expi.AI.stream_simple(model, context)
-      
+
       stream
       |> Stream.chunk_every(5)  # Process events in batches
       |> Stream.each(fn batch ->
-        text_content = 
+        text_content =
           batch
           |> Enum.filter(& &1.type == :text_delta)
           |> Enum.map(& &1.delta)
           |> Enum.join("")
-        
+
         if text_content != "", do: IO.write(text_content)
       end)
       |> Stream.run()
-      
+
       # Error handling with stream recovery
       case Expi.AI.stream_simple(model, context) do
         {:ok, stream} ->
@@ -400,29 +400,29 @@ defmodule Expi.AI do
               Logger.error("Stream interrupted: " <> inspect(error))
               # Implement recovery logic here
           end
-        
+
         {:error, :missing_api_key} ->
           Logger.error("Configure API key for streaming")
-        
+
         {:error, :rate_limited} ->
           Logger.warn("Rate limited, waiting before retry")
           Process.sleep(60_000)
       end
-      
+
   ## Integration Patterns
 
       # GenServer for stateful streaming
       defmodule StreamingHandler do
         use GenServer
-        
+
         def start_streaming(message) do
           GenServer.cast(__MODULE__, {:start_stream, message})
         end
-        
+
         def handle_cast({:start_stream, message}, state) do
           {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
           context = build_context(message)
-          
+
           Task.start(fn ->
             case Expi.AI.stream_simple(model, context) do
               {:ok, stream} ->
@@ -431,10 +431,10 @@ defmodule Expi.AI do
                 end) |> Stream.run()
             end
           end)
-          
+
           {:noreply, %{state | streaming: true}}
         end
-        
+
         def handle_cast({:stream_event, event}, state) do
           # Handle each streaming event
           new_state = process_stream_event(event, state)

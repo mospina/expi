@@ -34,7 +34,7 @@ defmodule Expi.Agent.Config do
         session_id: "user_123",
         steering_mode: :one_at_a_time
       })
-      
+
       # Advanced configuration with custom functions
       {:ok, config} = AgentConfig.new(%{
         convert_to_llm: fn messages ->
@@ -81,7 +81,7 @@ defmodule Expi.Agent.Config do
   ## Examples
 
       config = AgentConfig.default()
-      
+
       # All defaults are set:
       assert config.steering_mode == :all
       assert config.follow_up_mode == :all
@@ -172,9 +172,9 @@ defmodule Expi.Agent.Config do
 
       base_config = AgentConfig.default()
       user_overrides = %AgentOptions{session_id: "user_789", steering_mode: :one_at_a_time}
-      
+
       final_config = AgentConfig.merge(base_config, user_overrides)
-      
+
       assert final_config.session_id == "user_789"
       assert final_config.steering_mode == :one_at_a_time
       assert final_config.follow_up_mode == :all  # From base config
@@ -198,7 +198,7 @@ defmodule Expi.Agent.Config do
 
       partial_config = %AgentOptions{session_id: "abc123"}
       complete_config = AgentConfig.apply_defaults(partial_config)
-      
+
       # All nil fields now have default values
       assert complete_config.steering_mode == :all
       assert complete_config.max_retry_delay_ms == 30_000
@@ -217,7 +217,7 @@ defmodule Expi.Agent.Config do
   ## Examples
 
       stream_fn = AgentConfig.get_stream_fn(config)
-      
+
       # Use the stream function
       case stream_fn.(model, context, options) do
         {:ok, stream} -> handle_stream(stream)
@@ -242,7 +242,7 @@ defmodule Expi.Agent.Config do
   ## Examples
 
       auth_fn = AgentConfig.get_auth_fn(config)
-      
+
       case auth_fn.("anthropic") do
         key when is_binary(key) -> use_api_key(key)
         nil -> handle_missing_key()
@@ -264,7 +264,7 @@ defmodule Expi.Agent.Config do
   ## Examples
 
       convert_fn = AgentConfig.get_convert_fn(config)
-      
+
       case convert_fn.(agent_messages) do
         {:ok, llm_messages} -> send_to_llm(llm_messages)
         {:error, reason} -> handle_conversion_error(reason)
@@ -288,7 +288,7 @@ defmodule Expi.Agent.Config do
   ## Examples
 
       transform_fn = AgentConfig.get_transform_fn(config)
-      
+
       case transform_fn.(messages, abort_signal) do
         {:ok, transformed} -> proceed_with_messages(transformed)
         {:error, reason} -> handle_transform_error(reason)
@@ -315,7 +315,7 @@ defmodule Expi.Agent.Config do
       test_config = AgentConfig.for_testing(%{
         session_id: "test_session"
       })
-      
+
       # Safe for unit tests - no external dependencies
   """
   @spec for_testing(map()) :: AgentOptions.t()

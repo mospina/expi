@@ -7,7 +7,7 @@ defmodule Expi.AI.IntegrationTest do
 
   Required environment variables:
   - ANTHROPIC_API_KEY
-  - GOOGLE_API_KEY  
+  - GOOGLE_API_KEY
   - OLLAMA_ENDPOINT (optional, defaults to http://localhost:11434)
   """
 
@@ -185,7 +185,7 @@ defmodule Expi.AI.IntegrationTest do
 
           {:ok, response} = AI.complete_simple(model, context)
 
-          # Verify response structure  
+          # Verify response structure
           assert response.role == :assistant
           assert is_list(response.content)
 

@@ -49,16 +49,16 @@ defmodule Expi.Agent.Context do
 
       # Remove messages older than 24 hours
       day_prune = Context.prune_by_age(86_400_000, preserve_count: 5)
-      
+
       {:ok, context} = MessageProcessor.process_pipeline(
-        state, 
-        day_prune, 
+        state,
+        day_prune,
         nil
       )
-      
+
       # Remove messages older than 1 hour, always keep last 10
       hour_prune = Context.prune_by_age(
-        3_600_000, 
+        3_600_000,
         preserve_count: 10,
         keep_system_messages: true
       )
@@ -97,10 +97,10 @@ defmodule Expi.Agent.Context do
 
       # Keep only last 20 messages
       count_limit = Context.prune_by_count(20)
-      
+
       # Keep last 30 messages, but preserve all system messages
       preserve_system = Context.prune_by_count(
-        30, 
+        30,
         preserve_types: [:system, :tool_result]
       )
   """
@@ -141,10 +141,10 @@ defmodule Expi.Agent.Context do
 
       # Stay under 4000 tokens
       token_limit = Context.prune_by_tokens(4000)
-      
+
       # Aggressive pruning for smaller models
       small_limit = Context.prune_by_tokens(
-        1500, 
+        1500,
         preserve_count: 3,
         preserve_types: [:system]
       )
@@ -172,7 +172,7 @@ defmodule Expi.Agent.Context do
 
       # Keep only conversation messages, remove system notifications
       conversation_only = Context.filter_by_type([:user, :assistant, :tool_result])
-      
+
       # Debug mode - keep everything including internal messages
       debug_filter = Context.filter_by_type([
         :user, :assistant, :tool_result, :system, :notification
@@ -197,7 +197,7 @@ defmodule Expi.Agent.Context do
       privacy_filter = Context.filter_by_content(
         exclude_patterns: [~r/password/i, ~r/secret/i, ~r/key.*=/i]
       )
-      
+
       # Keep only messages about a specific topic
       topic_filter = Context.filter_by_content(
         include_patterns: [~r/elixir/i, ~r/functional.*programming/i]
@@ -249,7 +249,7 @@ defmodule Expi.Agent.Context do
       time_context = Context.inject_context([
         %{type: :system, content: "Current time: #{DateTime.utc_now()}"}
       ])
-      
+
       # Add periodic reminders about conversation guidelines
       reminder_context = Context.inject_context(
         [%{type: :system, content: "Remember to be helpful and accurate."}],
@@ -302,11 +302,11 @@ defmodule Expi.Agent.Context do
   ## Examples
 
       # Optimize for Claude with reasoning support
-      claude_optimize = Context.optimize_for_model(:claude, 
+      claude_optimize = Context.optimize_for_model(:claude,
         enable_thinking: true,
         max_tokens: 8000
       )
-      
+
       # Optimize for smaller models with tight limits
       small_model_optimize = Context.optimize_for_model(:llama_8b,
         max_tokens: 2000,
@@ -340,7 +340,7 @@ defmodule Expi.Agent.Context do
 
       # Remove exact duplicates
       dedup = Context.compress_repetitive(similarity_threshold: 1.0)
-      
+
       # Remove similar messages (fuzzy matching)
       fuzzy_dedup = Context.compress_repetitive(
         similarity_threshold: 0.8,
@@ -376,7 +376,7 @@ defmodule Expi.Agent.Context do
         Context.prune_by_tokens(4000, preserve_count: 5),
         Context.inject_context([%{type: :system, content: "Context optimized"}])
       ])
-      
+
       {:ok, context} = MessageProcessor.process_pipeline(
         state,
         optimization_pipeline,
@@ -405,11 +405,11 @@ defmodule Expi.Agent.Context do
   ## Examples
 
       stats = Context.analyze_context(messages)
-      
+
       if stats.estimated_tokens > 5000 do
         apply_aggressive_pruning()
       end
-      
+
       IO.puts("Conversation has " <> to_string(stats.message_count) <> " messages")
       IO.puts("Token distribution: " <> inspect(stats.type_distribution))
   """
@@ -450,7 +450,7 @@ defmodule Expi.Agent.Context do
         token_budget: 4000,
         strategies: [:prune_old, :compress_repetitive, :optimize_content]
       )
-      
+
       {:ok, context} = MessageProcessor.process_pipeline(
         state,
         smart_transform,

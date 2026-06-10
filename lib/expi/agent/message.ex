@@ -147,7 +147,7 @@ defmodule Expi.Agent.Message do
 
       iex> AgentMessage.validate_all([valid_msg1, valid_msg2])
       :ok
-      
+
       iex> AgentMessage.validate_all([valid_msg, invalid_msg])
       {:error, {:invalid_message, 1, "Details about what's invalid"}}
   """

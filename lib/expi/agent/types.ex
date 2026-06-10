@@ -20,7 +20,7 @@ defmodule Expi.Agent.Types do
     The AgentState struct maintains all conversation context including:
     - System prompt and model configuration
     - Thinking level for reasoning depth
-    - Available tools and their configurations  
+    - Available tools and their configurations
     - Complete message history
     - Current streaming status and active operations
     - Error state and recovery information
@@ -214,7 +214,7 @@ defmodule Expi.Agent.Types do
             type: event_type(),
             # Agent lifecycle fields
             messages: [AgentMessage.t()] | nil,
-            # Turn lifecycle fields  
+            # Turn lifecycle fields
             message: AgentMessage.t() | nil,
             tool_results: [Expi.Types.ToolResultMessage.t()] | nil,
             # Message lifecycle fields

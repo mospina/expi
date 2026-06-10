@@ -107,7 +107,7 @@ defmodule Expi.Agent.Loop do
         initial_state,
         agent_options
       )
-      
+
       # With custom configuration
       {:ok, final_state} = AgentLoop.run_agent_loop(
         initial_state,
@@ -118,7 +118,7 @@ defmodule Expi.Agent.Loop do
           IO.puts("Agent event: " <> to_string(agent_event.type))
         end
       )
-      
+
       # Unlimited turns with real-time monitoring
       {:ok, final_state} = AgentLoop.run_agent_loop(
         initial_state,
@@ -263,7 +263,7 @@ defmodule Expi.Agent.Loop do
 
       # Add urgent user interruption
       updated_state = AgentLoop.add_steering_message(state, user_message)
-      
+
       # Add system steering message
       system_msg = Message.user("[SYSTEM] Processing interrupted by user")
       updated_state = AgentLoop.add_steering_message(state, system_msg)

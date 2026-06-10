@@ -49,10 +49,10 @@ defmodule Expi.Agent.MessageProcessor do
         %NotificationMessage{content: "File saved"},  # Will be filtered out
         %AssistantMessage{content: [%{type: :text, text: "Hi!"}]}
       ]
-      
+
       {:ok, llm_messages} = MessageProcessor.convert_to_llm(agent_messages)
       # Only user and assistant messages are included
-      
+
   ## Returns
 
   - `{:ok, [message()]}` - Successfully converted messages
@@ -96,9 +96,9 @@ defmodule Expi.Agent.MessageProcessor do
         processed = Enum.map(messages, &add_metadata/1)
         Message.filter_for_llm(processed)
       end
-      
+
       {:ok, llm_messages} = MessageProcessor.convert_messages(
-        agent_messages, 
+        agent_messages,
         custom_convert
       )
   """
@@ -145,7 +145,7 @@ defmodule Expi.Agent.MessageProcessor do
 
       # Basic pipeline with default functions
       {:ok, context} = MessageProcessor.process_pipeline(state, nil, nil)
-      
+
       # Custom transformation and conversion
       transform_fn = fn messages, _abort_signal ->
         # Prune old messages if conversation is too long
@@ -155,13 +155,13 @@ defmodule Expi.Agent.MessageProcessor do
           {:ok, messages}
         end
       end
-      
+
       {:ok, context} = MessageProcessor.process_pipeline(
-        state, 
-        transform_fn, 
+        state,
+        transform_fn,
         &custom_convert/1
       )
-      
+
       # Use the context with AI model
       {:ok, response} = Expi.AI.complete_simple(model, context)
   """
@@ -199,9 +199,9 @@ defmodule Expi.Agent.MessageProcessor do
         end)
         {:ok, recent}
       end
-      
+
       {:ok, recent_messages} = MessageProcessor.apply_transformations(
-        all_messages, 
+        all_messages,
         age_prune,
         nil
       )
@@ -251,7 +251,7 @@ defmodule Expi.Agent.MessageProcessor do
         transform_fn: &prune_old_messages/2,
         convert_fn: &custom_convert/1
       }
-      
+
       case MessageProcessor.validate_pipeline(pipeline) do
         :ok -> run_pipeline(pipeline)
         {:error, reason} -> fix_pipeline(reason)
@@ -279,7 +279,7 @@ defmodule Expi.Agent.MessageProcessor do
 
       messages = [user_msg, assistant_msg, tool_result]
       estimated_tokens = MessageProcessor.estimate_tokens(messages)
-      
+
       if estimated_tokens > 8000 do
         prune_old_messages(messages)
       end
@@ -344,11 +344,11 @@ defmodule Expi.Agent.MessageProcessor do
   ## Examples
 
       agent_context = build_agent_context(state)
-      
+
       case MessageProcessor.agent_context_to_llm(agent_context) do
-        {:ok, llm_context} -> 
+        {:ok, llm_context} ->
           Expi.AI.complete_simple(model, llm_context)
-        {:error, reason} -> 
+        {:error, reason} ->
           handle_conversion_error(reason)
       end
   """
@@ -384,8 +384,8 @@ defmodule Expi.Agent.MessageProcessor do
 
       # Keep conversation under 4000 tokens, preserve last 10 messages
       {:ok, pruned} = MessageProcessor.prune_by_tokens(
-        messages, 
-        4000, 
+        messages,
+        4000,
         preserve_count: 10
       )
   """
@@ -421,7 +421,7 @@ defmodule Expi.Agent.MessageProcessor do
 
       # Keep only user and assistant messages, filter out notifications
       {:ok, filtered} = MessageProcessor.filter_by_type(
-        messages, 
+        messages,
         [:user, :assistant]
       )
   """

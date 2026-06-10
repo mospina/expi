@@ -56,7 +56,7 @@ defmodule Expi.Agent do
     end
   end
 
-  {:ok, final_state} = Expi.Agent.run_conversation(updated_state, 
+  {:ok, final_state} = Expi.Agent.run_conversation(updated_state,
     event_callback: callback
   )
 
@@ -142,20 +142,20 @@ defmodule Expi.Agent do
       {:ok, agent} = Expi.Agent.create(model, %{
         system_prompt: "You are a helpful coding assistant"
       })
-      
+
       # Agent with tools
       search_tool = %Expi.Agent.Tool{
         name: "search",
         description: "Search for information",
         function: &MyTools.search/1
       }
-      
+
       {:ok, agent} = Expi.Agent.create(model, %{
         system_prompt: "You are a research assistant",
         tools: [search_tool],
         max_context_length: 100_000
       })
-      
+
       # Validate agent was created properly
       assert Expi.Agent.valid?(agent)
       assert length(Expi.Agent.get_messages(agent)) == 0
@@ -234,7 +234,7 @@ defmodule Expi.Agent do
       # Reset after a long conversation
       clean_agent = Expi.Agent.reset(agent)
       assert length(Expi.Agent.get_messages(clean_agent)) == 0
-      
+
       # Model and tools are preserved
       assert clean_agent.model == agent.model
       assert clean_agent.tools == agent.tools
@@ -252,7 +252,7 @@ defmodule Expi.Agent do
       # Create parallel conversation branches
       branch_a = Expi.Agent.clone(agent)
       branch_b = Expi.Agent.clone(agent)
-      
+
       {:ok, result_a} = Expi.Agent.send_message(branch_a, "Tell me about cats")
       {:ok, result_b} = Expi.Agent.send_message(branch_b, "Tell me about dogs")
   """
@@ -294,11 +294,11 @@ defmodule Expi.Agent do
 
       # Add user message
       {:ok, updated_agent} = Expi.Agent.send_message(agent, "Hello, how are you?")
-      
+
       # Message is added but no response generated yet
       messages = Expi.Agent.get_messages(updated_agent)
       assert List.last(messages).role == :user
-      
+
       # Generate response
       {:ok, final_agent} = Expi.Agent.run_conversation(updated_agent)
   """
@@ -325,9 +325,9 @@ defmodule Expi.Agent do
 
       # Urgent correction
       {:ok, updated_agent} = Expi.Agent.add_steering(agent, "Stop! Don't do that.")
-      
+
       # System alert
-      {:ok, updated_agent} = Expi.Agent.add_steering(agent, 
+      {:ok, updated_agent} = Expi.Agent.add_steering(agent,
         "[SYSTEM] Memory usage high, please reduce complexity"
       )
   """
@@ -356,10 +356,10 @@ defmodule Expi.Agent do
   ## Examples
 
       # Natural follow-up
-      {:ok, updated_agent} = Expi.Agent.add_follow_up(agent, 
+      {:ok, updated_agent} = Expi.Agent.add_follow_up(agent,
         "That's helpful! Can you give me an example?"
       )
-      
+
       # Additional request
       {:ok, updated_agent} = Expi.Agent.add_follow_up(agent,
         "Also, can you format that as a table?"
@@ -408,17 +408,17 @@ defmodule Expi.Agent do
 
       # Basic conversation
       {:ok, final_agent} = Expi.Agent.run_conversation(agent)
-      
+
       # With event monitoring
       callback = fn event ->
         IO.puts("Event: " <> to_string(event.type))
       end
-      
+
       {:ok, final_agent} = Expi.Agent.run_conversation(agent,
         event_callback: callback,
         max_turns: 10
       )
-      
+
       # Advanced configuration
       {:ok, final_agent} = Expi.Agent.run_conversation(agent, %{
         steering_mode: :one_at_a_time,
@@ -480,7 +480,7 @@ defmodule Expi.Agent do
       # Process one turn at a time
       {:ok, agent_after_turn_1} = Expi.Agent.process_turn(agent)
       {:ok, agent_after_turn_2} = Expi.Agent.process_turn(agent_after_turn_1)
-      
+
       # With custom options
       {:ok, updated_agent} = Expi.Agent.process_turn(agent, %{
         tool_timeout: 60_000,
@@ -539,7 +539,7 @@ defmodule Expi.Agent do
       # Stream response with default callback
       {:ok, updated_agent, response} = Expi.Agent.stream_response(agent)
       IO.puts("Assistant said: " <> response.content)
-      
+
       # Stream with custom event handling
       callback = fn event ->
         case event.type do
@@ -547,7 +547,7 @@ defmodule Expi.Agent do
           :done -> IO.puts("\\nResponse complete!")
         end
       end
-      
+
       {:ok, updated_agent, response} = Expi.Agent.stream_response(agent, callback)
   """
   @spec stream_response(AgentState.t(), function() | nil) ::
@@ -597,7 +597,7 @@ defmodule Expi.Agent do
         description: "Perform mathematical calculations",
         function: &MyTools.calculate/1
       }
-      
+
       updated_agent = Expi.Agent.add_tool(agent, calculator)
       assert length(Expi.Agent.get_tools(updated_agent)) == 1
   """
@@ -613,9 +613,9 @@ defmodule Expi.Agent do
 
       # Remove by name
       updated_agent = Expi.Agent.remove_tool(agent, "calculator")
-      
+
       # Tool is no longer available
-      refute Enum.any?(Expi.Agent.get_tools(updated_agent), 
+      refute Enum.any?(Expi.Agent.get_tools(updated_agent),
         fn t -> t.name == "calculator" end
       )
   """
@@ -634,7 +634,7 @@ defmodule Expi.Agent do
 
       # Execute all pending tools
       {:ok, updated_agent, results} = Expi.Agent.execute_pending_tools(agent)
-      
+
       IO.puts("Executed " <> to_string(length(results)) <> " tools")
       Enum.each(results, fn result ->
         IO.puts("Tool " <> result.tool_name <> ": " <> result.content)
@@ -690,7 +690,7 @@ defmodule Expi.Agent do
   ## Examples
 
       messages = Expi.Agent.get_messages(agent)
-      
+
       IO.puts("Conversation has " <> to_string(length(messages)) <> " messages")
       Enum.each(messages, fn msg ->
         IO.puts(to_string(msg.role) <> ": " <> Message.content(msg))
@@ -707,7 +707,7 @@ defmodule Expi.Agent do
   ## Examples
 
       tools = Expi.Agent.get_tools(agent)
-      
+
       IO.puts("Agent has " <> to_string(length(tools)) <> " tools available:")
       Enum.each(tools, fn tool ->
         IO.puts("- " <> tool.name <> ": " <> tool.description)
@@ -724,7 +724,7 @@ defmodule Expi.Agent do
   ## Examples
 
       stats = Expi.Agent.get_stats(agent)
-      
+
       IO.puts("Messages: " <> to_string(stats.message_count))
       IO.puts("Tools: " <> to_string(stats.tool_count))
       IO.puts("Created: " <> DateTime.to_string(stats.created_at))
@@ -760,7 +760,7 @@ defmodule Expi.Agent do
   ## Examples
 
       config = Expi.Agent.get_config(agent)
-      
+
       IO.puts("Model: " <> config.model.id)
       IO.puts("System prompt: " <> String.slice(config.system_prompt, 0, 50) <> "...")
       IO.puts("Max context: " <> to_string(config.max_context_length))
@@ -791,7 +791,7 @@ defmodule Expi.Agent do
       message_queue = Queue.create_queue()
       |> Queue.add_steering(Message.user("Stop and help me with this urgent issue"))
       |> Queue.add_follow_up(Message.user("Also, can you explain the previous answer?"))
-      
+
       # Run with explicit queue management
       {:ok, final_agent, final_queue} = Expi.Agent.run_with_queue(
         agent,
@@ -854,7 +854,7 @@ defmodule Expi.Agent do
         steering: [interrupt_tools: true, max_steering_per_turn: 3],
         follow_up: [min_idle_time_ms: 2000, natural_break_detection: true]
       )
-      
+
       case coordination_result.action do
         :interrupt_loop -> handle_urgent_processing()
         :queue_for_next_turn -> schedule_future_processing()
@@ -879,11 +879,11 @@ defmodule Expi.Agent do
         recent_messages = Enum.take(messages, -20)
         {:ok, recent_messages}
       end
-      
-      {:ok, updated_agent} = Expi.Agent.apply_transforms(agent, 
+
+      {:ok, updated_agent} = Expi.Agent.apply_transforms(agent,
         transform_context: pruning_fn
       )
-      
+
       # Custom message filtering
       filter_fn = fn messages, _context ->
         filtered = Enum.reject(messages, fn msg ->
@@ -891,7 +891,7 @@ defmodule Expi.Agent do
         end)
         {:ok, filtered}
       end
-      
+
       {:ok, updated_agent} = Expi.Agent.apply_transforms(agent,
         transform_context: filter_fn
       )

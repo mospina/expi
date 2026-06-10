@@ -85,9 +85,9 @@ defmodule Expi.Agent.ToolExecutor do
         %ToolCall{id: "call_1", name: "web_search", arguments: %{"query" => "elixir"}},
         %ToolCall{id: "call_2", name: "file_read", arguments: %{"path" => "/data.csv"}}
       ]
-      
+
       callback = ProcessCallback.new(self(), :detailed)
-      
+
       {:ok, results} = ToolExecutor.execute_tools_concurrent(
         tool_calls,
         available_tools,
@@ -95,7 +95,7 @@ defmodule Expi.Agent.ToolExecutor do
         max_concurrent: 2,
         on_update: callback
       )
-      
+
       # Sequential execution for resource-constrained scenarios
       {:ok, results} = ToolExecutor.execute_tools_concurrent(
         tool_calls,
@@ -103,7 +103,7 @@ defmodule Expi.Agent.ToolExecutor do
         strategy: :sequential,
         timeout: 60_000
       )
-      
+
   ## Returns
 
   - `{:ok, [ToolResultMessage.t()]}` - All tools executed successfully
@@ -185,7 +185,7 @@ defmodule Expi.Agent.ToolExecutor do
   ## Examples
 
       tool_call = %ToolCall{id: "call_123", name: "search", arguments: %{"q" => "test"}}
-      
+
       {:ok, result} = ToolExecutor.execute_single_tool(
         tool_call,
         search_tool,
@@ -355,7 +355,7 @@ defmodule Expi.Agent.ToolExecutor do
   ## Examples
 
       execution_ref = start_tool_execution(tool_call, tool)
-      
+
       # Cancel after 5 seconds if still running
       Process.sleep(5000)
       ToolExecutor.cancel_execution(execution_ref)

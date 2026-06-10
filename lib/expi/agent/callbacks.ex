@@ -104,10 +104,10 @@ defmodule Expi.Agent.Callbacks do
   ## Examples
 
       registry = Callbacks.create_registry()
-      
+
       # Register callbacks
       {:ok, callback_id} = Callbacks.register_callback(registry, function_callback)
-      
+
       # Invoke all callbacks
       Callbacks.invoke_callbacks(registry, event)
   """
@@ -138,9 +138,9 @@ defmodule Expi.Agent.Callbacks do
         function: fn event -> update_ui(event) end,
         metadata: %{component: "main_ui"}
       }
-      
+
       {:ok, registry, callback_id} = Callbacks.register_callback(registry, function_callback)
-      
+
       # Process callback
       process_callback = %{
         type: :process,
@@ -149,9 +149,9 @@ defmodule Expi.Agent.Callbacks do
         message_format: :detailed,
         metadata: %{log_level: :info}
       }
-      
+
       {:ok, registry, callback_id} = Callbacks.register_callback(registry, process_callback)
-      
+
       # Module callback
       module_callback = %{
         type: :module,
@@ -161,7 +161,7 @@ defmodule Expi.Agent.Callbacks do
         args: [],
         metadata: %{namespace: "agent_events"}
       }
-      
+
       {:ok, registry, callback_id} = Callbacks.register_callback(registry, module_callback)
   """
   @spec register_callback(callback_registry(), map()) ::
@@ -240,12 +240,12 @@ defmodule Expi.Agent.Callbacks do
 
       # List all callbacks
       all_callbacks = Callbacks.list_callbacks(registry)
-      
+
       # List only function callbacks
       function_callbacks = Callbacks.list_callbacks(registry, type: :function)
-      
+
       # List callbacks with specific metadata
-      ui_callbacks = Callbacks.list_callbacks(registry, 
+      ui_callbacks = Callbacks.list_callbacks(registry,
         metadata_filter: fn meta -> Map.get(meta, :component) == "ui" end
       )
   """
@@ -282,13 +282,13 @@ defmodule Expi.Agent.Callbacks do
 
       # Basic invocation
       result = Callbacks.invoke_callback(callback, event)
-      
+
       # With timeout and error handling
       result = Callbacks.invoke_callback(callback, event,
         timeout: 10_000,
         on_error: :log
       )
-      
+
       # Asynchronous invocation
       Callbacks.invoke_callback(callback, event, async: true)
   """
@@ -353,12 +353,12 @@ defmodule Expi.Agent.Callbacks do
 
       # Invoke all callbacks
       results = Callbacks.invoke_callbacks(registry, event)
-      
+
       # Invoke with filtering
       results = Callbacks.invoke_callbacks(registry, event,
         filter: fn callback -> callback.type == :function end
       )
-      
+
       # Parallel invocation with timeout
       results = Callbacks.invoke_callbacks(registry, event,
         mode: :parallel,
@@ -409,12 +409,12 @@ defmodule Expi.Agent.Callbacks do
   ## Examples
 
       events = [event1, event2, event3]
-      
+
       # Sequential batch processing
       results = Callbacks.batch_invoke(registry, events, mode: :sequential)
-      
+
       # Parallel batch processing
-      results = Callbacks.batch_invoke(registry, events, 
+      results = Callbacks.batch_invoke(registry, events,
         mode: :parallel,
         batch_size: 10
       )
@@ -456,7 +456,7 @@ defmodule Expi.Agent.Callbacks do
   ## Examples
 
       stats = Callbacks.get_callback_stats(registry, callback_id)
-      
+
       IO.puts("Invocations: " <> to_string(stats.invocation_count))
       IO.puts("Average time: " <> to_string(stats.average_execution_time) <> "ms")
       IO.puts("Error rate: " <> to_string(stats.error_count / stats.invocation_count * 100) <> "%")
@@ -484,7 +484,7 @@ defmodule Expi.Agent.Callbacks do
   ## Examples
 
       summary = Callbacks.get_registry_stats(registry)
-      
+
       IO.puts("Total callbacks: " <> to_string(summary.total_callbacks))
       IO.puts("Total invocations: " <> to_string(summary.total_invocations))
       IO.puts("Overall error rate: " <> to_string(summary.error_rate * 100) <> "%")
@@ -556,7 +556,7 @@ defmodule Expi.Agent.Callbacks do
 
       # Filter by type
       function_callbacks = Callbacks.filter_callbacks(callbacks, type: :function)
-      
+
       # Filter by custom criteria
       active_callbacks = Callbacks.filter_callbacks(callbacks, fn callback ->
         case callback.type do
@@ -584,7 +584,7 @@ defmodule Expi.Agent.Callbacks do
   ## Examples
 
       {:ok, cleaned_registry, removed_count} = Callbacks.callback_health_check(registry)
-      
+
       if removed_count > 0 do
         Logger.info("Removed " <> to_string(removed_count) <> " dead callbacks")
       end
@@ -656,10 +656,10 @@ defmodule Expi.Agent.Callbacks do
 
       # Function callback
       ui_callback = Callbacks.create_function_callback("ui_updates", &update_ui/1)
-      
+
       # Process callback
       logger_callback = Callbacks.create_process_callback("logger", logger_pid)
-      
+
       # Module callback
       metrics_callback = Callbacks.create_module_callback("metrics", MyApp.Metrics, :record_event)
   """

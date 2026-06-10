@@ -89,15 +89,15 @@ defmodule Expi.Agent.Steering do
         :process_now ->
           # Interrupt immediately
           handle_urgent_steering(steering_msgs)
-          
+
         :process_after_tools ->
           # Wait for current tools to complete
           queue_steering_after_tools(steering_msgs)
-          
+
         :defer ->
           # Wait for better timing
           defer_steering_processing(steering_msgs)
-          
+
         :ignore ->
           # Skip processing (e.g., duplicate or invalid messages)
           log_ignored_steering(steering_msgs)
@@ -164,15 +164,15 @@ defmodule Expi.Agent.Steering do
         :process_now ->
           # Natural break detected, process follow-ups
           handle_follow_up_messages(follow_ups)
-          
+
         :defer_until_complete ->
           # Wait for all current work to complete
           wait_for_conversation_completion()
-          
+
         :defer ->
           # Wait for better timing
           schedule_follow_up_check()
-          
+
         :ignore ->
           # Skip processing (e.g., too old or redundant)
           cleanup_old_follow_ups(follow_ups)
@@ -237,18 +237,18 @@ defmodule Expi.Agent.Steering do
 
   ## Examples
 
-      {decision, processed_messages, updated_queue} = 
+      {decision, processed_messages, updated_queue} =
         Steering.apply_steering_logic(agent_state, message_queue, options)
-      
+
       case decision do
         {:interrupt, messages} ->
           interrupt_current_processing()
           process_steering_immediately(messages)
-          
+
         {:queue_after_tools, messages} ->
           wait_for_tools()
           schedule_steering_processing(messages)
-          
+
         {:defer, reason} ->
           log_steering_deferral(reason)
           continue_current_processing()
@@ -315,16 +315,16 @@ defmodule Expi.Agent.Steering do
 
   ## Examples
 
-      {decision, processed_messages, updated_queue} = 
+      {decision, processed_messages, updated_queue} =
         Steering.apply_follow_up_logic(agent_state, message_queue, options)
-      
+
       case decision do
         {:process_natural, messages} ->
           process_follow_up_naturally(messages)
-          
+
         {:wait_for_break, estimated_time} ->
           schedule_follow_up_check(estimated_time)
-          
+
         {:defer_conversation_active, nil} ->
           continue_monitoring_conversation()
       end
@@ -392,7 +392,7 @@ defmodule Expi.Agent.Steering do
   ## Examples
 
       readiness = Steering.analyze_agent_readiness(agent_state)
-      
+
       IO.puts("Can interrupt: " <> to_string(readiness.can_interrupt))
       IO.puts("At natural break: " <> to_string(readiness.at_natural_break))
       IO.puts("Processing capacity: " <> to_string(readiness.processing_capacity))
@@ -427,10 +427,10 @@ defmodule Expi.Agent.Steering do
   ## Examples
 
       priority_info = Steering.get_processing_priority(steering_msgs, follow_up_msgs)
-      
+
       case priority_info.recommendation do
         :process_steering_first -> handle_steering_priority()
-        :process_follow_up_first -> handle_follow_up_priority()  
+        :process_follow_up_first -> handle_follow_up_priority()
         :process_together -> handle_batch_processing()
         :defer_all -> wait_for_better_timing()
       end
@@ -488,7 +488,7 @@ defmodule Expi.Agent.Steering do
         message_queue,
         loop_options
       )
-      
+
       case coordination_result.action do
         :interrupt_loop -> interrupt_and_process()
         :queue_for_next_turn -> schedule_next_turn_processing()
@@ -558,7 +558,7 @@ defmodule Expi.Agent.Steering do
         coordination_result,
         processing_events
       )
-      
+
       # State reflects message processing decisions
       assert State.has_pending_steering?(updated_state) == false
       assert State.get_follow_up_count(updated_state) == expected_count
@@ -583,7 +583,7 @@ defmodule Expi.Agent.Steering do
           updated_state
 
         :queue_for_next_turn ->
-          # Messages queued for next turn - no additional state changes needed for now  
+          # Messages queued for next turn - no additional state changes needed for now
           updated_state
 
         :continue_loop ->

@@ -74,15 +74,15 @@ defmodule Expi.Agent.Turn do
 
       # Basic turn execution
       {:ok, updated_state} = Turn.execute_turn(loop_state, nil)
-      
+
       # With event monitoring
       {:ok, updated_state} = Turn.execute_turn(loop_state, fn event ->
         handle_turn_event(event)
       end)
-      
+
       # Turn execution will:
       # 1. Prepare LLM context from agent messages
-      # 2. Stream assistant response from AI model  
+      # 2. Stream assistant response from AI model
       # 3. Process streaming events and build response
       # 4. Extract tool calls and queue for execution
       # 5. Update agent state with new message and tools
@@ -161,8 +161,8 @@ defmodule Expi.Agent.Turn do
   ## Examples
 
       {:ok, response} = Turn.process_streaming_response(
-        model, 
-        context, 
+        model,
+        context,
         event_callback
       )
   """
@@ -221,7 +221,7 @@ defmodule Expi.Agent.Turn do
   ## Examples
 
       tool_calls = Turn.extract_tool_calls(assistant_message)
-      
+
       Enum.each(tool_calls, fn tc ->
         IO.puts("Tool: " <> tc.name <> " with args: " <> inspect(tc.arguments))
       end)

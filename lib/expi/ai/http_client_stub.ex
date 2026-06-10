@@ -78,7 +78,7 @@ defmodule Expi.AI.HttpClient do
     end
   end
 
-  # Collect all async chunks immediately  
+  # Collect all async chunks immediately
   defp collect_all_chunks(id) do
     collect_chunks_loop(id, [])
   end

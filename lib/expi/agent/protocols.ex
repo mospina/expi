@@ -8,7 +8,7 @@ defmodule Expi.Agent.Protocols do
   """
 
   # Protocol for agent messages, enabling extensible message types.
-  # 
+  #
   # The AgentMessage protocol allows applications to define custom
   # message types while ensuring they can be properly converted to
   # LLM-compatible messages and handled by the agent system.
@@ -26,7 +26,7 @@ defmodule Expi.Agent.Protocols do
         iex> user_msg = %Expi.Types.UserMessage{content: "Hello"}
         iex> AgentMessage.to_llm_message(user_msg)
         %Expi.Types.UserMessage{content: "Hello"}
-        
+
         # Notification message is filtered out
         iex> notification = %MyApp.NotificationMessage{content: "File saved"}
         iex> AgentMessage.to_llm_message(notification)
@@ -114,7 +114,7 @@ defmodule Expi.Agent.Protocols do
     end
   end
 
-  # Implementation for ToolResultMessage  
+  # Implementation for ToolResultMessage
   defimpl AgentMessage, for: Expi.Types.ToolResultMessage do
     def to_llm_message(message), do: message
     def message_type(_), do: :tool_result
@@ -175,7 +175,7 @@ defmodule Expi.Agent.Protocols do
 
     ## Parameters
 
-    - `callback` - The callback implementation  
+    - `callback` - The callback implementation
     - `tool_call_id` - Unique identifier for this tool call
     - `final_result` - Final result or error from the tool
     - `is_error` - Whether the execution resulted in an error

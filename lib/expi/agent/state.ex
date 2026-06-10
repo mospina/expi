@@ -36,14 +36,14 @@ defmodule Expi.Agent.State do
       # Basic agent state
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-sonnet-3-6")
       state = AgentState.new(model)
-      
+
       # With custom system prompt and tools
       state = AgentState.new(model, %{
         system_prompt: "You are a helpful coding assistant",
         thinking_level: :medium,
         tools: [search_tool, file_tool]
       })
-      
+
       # With initial message history
       messages = [Message.user("Hello, can you help me with Elixir?")]
       state = AgentState.new(model, %{messages: messages})
@@ -53,7 +53,7 @@ defmodule Expi.Agent.State do
   Returns a properly initialized AgentState struct with:
   - The provided model configuration
   - Default empty message history
-  - No active streaming or pending operations  
+  - No active streaming or pending operations
   - Thinking level set to :off by default
   - Any provided overrides applied
   """
@@ -94,7 +94,7 @@ defmodule Expi.Agent.State do
           thinking_level: :high
         }
       }
-      
+
       {:ok, model} = Expi.AI.get_model("anthropic", "claude-opus-4-5")
       state = AgentState.from_options(model, options)
   """
@@ -121,7 +121,7 @@ defmodule Expi.Agent.State do
 
       # Clear conversation history but keep configuration
       clean_state = AgentState.reset(state)
-      
+
       # Agent is ready for a new conversation
       assert clean_state.messages == []
       assert clean_state.is_streaming == false
@@ -180,11 +180,11 @@ defmodule Expi.Agent.State do
       # Add user message
       user_msg = Message.user("What's the weather like?")
       updated_state = AgentState.add_message(state, user_msg)
-      
+
       # Add assistant response (typically done by the agent loop)
       assistant_msg = %AssistantMessage{...}
       updated_state = AgentState.add_message(state, assistant_msg)
-      
+
       # Chain multiple updates
       state
       |> AgentState.add_message(user_msg)
@@ -224,7 +224,7 @@ defmodule Expi.Agent.State do
       # Load conversation from storage
       stored_messages = load_messages_from_db(conversation_id)
       state = AgentState.set_messages(state, stored_messages)
-      
+
       # Clear all messages
       state = AgentState.set_messages(state, [])
   """
@@ -251,7 +251,7 @@ defmodule Expi.Agent.State do
 
       # Get last 5 messages for context
       recent_messages = AgentState.get_recent_messages(state, 5)
-      
+
       # Get just the last message
       [last_message] = AgentState.get_recent_messages(state, 1)
   """
@@ -269,10 +269,10 @@ defmodule Expi.Agent.State do
 
       # Start streaming
       state = AgentState.set_streaming(state, true, partial_message)
-      
+
       # Stop streaming
       state = AgentState.set_streaming(state, false)
-      
+
       # Update streaming message
       state = AgentState.set_streaming(state, true, updated_message)
   """
@@ -317,7 +317,7 @@ defmodule Expi.Agent.State do
 
       new_tools = [search_tool, calculator_tool, file_tool]
       updated_state = AgentState.update_tools(state, new_tools)
-      
+
       # Remove all tools
       updated_state = AgentState.update_tools(state, [])
   """
@@ -494,7 +494,7 @@ defmodule Expi.Agent.State do
 
       # Enable high reasoning for complex problems
       updated_state = AgentState.set_thinking_level(state, :high)
-      
+
       # Disable thinking for speed
       updated_state = AgentState.set_thinking_level(state, :off)
   """
@@ -515,7 +515,7 @@ defmodule Expi.Agent.State do
 
       # Set error
       error_state = AgentState.set_error(state, "Network connection failed")
-      
+
       # Clear error
       clean_state = AgentState.set_error(state, nil)
   """
@@ -574,7 +574,7 @@ defmodule Expi.Agent.State do
   ## Examples
 
       message_count = AgentState.message_count(state)
-      
+
       if message_count > 100 do
         suggest_conversation_pruning()
       end

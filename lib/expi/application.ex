@@ -83,7 +83,7 @@ defmodule Expi.Application do
       # Start main AI pool for regular HTTP requests
       :hackney_pool.start_pool(:ai_pool, ai_config)
 
-      # Start streaming pool for long-running SSE connections  
+      # Start streaming pool for long-running SSE connections
       :hackney_pool.start_pool(:ai_stream_pool, stream_config)
 
       Logger.debug("Hackney pools started",
