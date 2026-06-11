@@ -703,7 +703,7 @@ defmodule Expi.Agent.ToolResult do
       cond do
         time < 1000 -> :fast
         time < 5000 -> :medium
-        time < 15000 -> :slow
+        time < 15_000 -> :slow
         true -> :very_slow
       end
     end)

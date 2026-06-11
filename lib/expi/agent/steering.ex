@@ -447,25 +447,12 @@ defmodule Expi.Agent.Steering do
     follow_up_priority = calculate_message_priority(follow_up_messages, :follow_up)
 
     {recommendation, reasoning} =
-      cond do
-        steering_messages != [] and follow_up_messages == [] ->
-          {:process_steering_first, "Only steering messages present"}
-
-        steering_messages == [] and follow_up_messages != [] ->
-          {:process_follow_up_first, "Only follow-up messages present"}
-
-        steering_priority > follow_up_priority ->
-          {:process_steering_first, "Steering messages have higher priority"}
-
-        follow_up_priority > steering_priority ->
-          {:process_follow_up_first, "Follow-up messages have higher priority"}
-
-        steering_messages != [] and follow_up_messages != [] ->
-          {:process_steering_first, "Default to steering priority when both present"}
-
-        true ->
-          {:defer_all, "No messages to process"}
-      end
+      determine_processing_recommendation(
+        steering_messages,
+        follow_up_messages,
+        steering_priority,
+        follow_up_priority
+      )
 
     %{
       steering_priority: steering_priority,
@@ -705,6 +692,44 @@ defmodule Expi.Agent.Steering do
 
     base_priority + count_bonus + urgency_bonus
   end
+
+  @spec determine_processing_recommendation(
+          [Message.t()],
+          [Message.t()],
+          non_neg_integer(),
+          non_neg_integer()
+        ) :: {
+          :process_steering_first | :process_follow_up_first | :process_together | :defer_all,
+          String.t()
+        }
+  defp determine_processing_recommendation([], [], _, _), do: {:defer_all, "No messages to process"}
+
+  defp determine_processing_recommendation(steering_messages, [], _, _)
+       when steering_messages != [] do
+    {:process_steering_first, "Only steering messages present"}
+  end
+
+  defp determine_processing_recommendation([], follow_up_messages, _, _)
+       when follow_up_messages != [] do
+    {:process_follow_up_first, "Only follow-up messages present"}
+  end
+
+  defp determine_processing_recommendation(_steering_messages, _follow_up_messages, steering_priority, follow_up_priority)
+       when steering_priority > follow_up_priority do
+    {:process_steering_first, "Steering messages have higher priority"}
+  end
+
+  defp determine_processing_recommendation(_steering_messages, _follow_up_messages, steering_priority, follow_up_priority)
+       when follow_up_priority > steering_priority do
+    {:process_follow_up_first, "Follow-up messages have higher priority"}
+  end
+
+  defp determine_processing_recommendation(steering_messages, follow_up_messages, _steering_priority, _follow_up_priority)
+       when steering_messages != [] and follow_up_messages != [] do
+    {:process_steering_first, "Default to steering priority when both present"}
+  end
+
+  defp determine_processing_recommendation(_, _, _, _), do: {:defer_all, "No messages to process"}
 
   @spec estimate_completion_time(AgentState.t()) :: pos_integer()
   defp estimate_completion_time(agent_state) do
