@@ -125,7 +125,8 @@ defmodule Expi.Session.ResourceLoader do
 
         skill ->
           skill_block =
-            "<skill name=\"#{skill.name}\" location=\"#{skill.file_path}\">\n" <>
+            ~s(<skill name="#{skill.name}" location="#{skill.file_path}">
+) <>
               "References are relative to #{skill.base_dir}.\n\n" <>
               String.trim(skill.body) <>
               "\n</skill>"
