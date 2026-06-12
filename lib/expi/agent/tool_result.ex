@@ -22,7 +22,7 @@ defmodule Expi.Agent.ToolResult do
   - Content aggregation for follow-up actions
   """
 
-  alias Expi.Types.{ToolResultMessage, TextContent, ImageContent}
+  alias Expi.Types.{ImageContent, TextContent, ToolResultMessage}
 
   @type result_statistics :: %{
           total_count: non_neg_integer(),

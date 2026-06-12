@@ -29,8 +29,8 @@ defmodule Expi.Agent.ToolExecutor do
   - Graceful degradation when tools time out or crash
   """
 
-  alias Expi.Agent.Types.{AgentTool, AgentToolResult, AgentEvent}
   alias Expi.Agent.Protocols.AgentToolCallback
+  alias Expi.Agent.Types.{AgentEvent, AgentTool, AgentToolResult}
   alias Expi.Types.{ToolCall, ToolResultMessage}
 
   require Logger

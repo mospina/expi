@@ -4,8 +4,8 @@ defmodule Expi.Providers.Anthropic do
   Supports Claude models with reasoning/thinking capabilities.
   """
 
-  alias Expi.AI.HttpClient
   alias Expi.AI.Auth
+  alias Expi.AI.HttpClient
   alias Expi.Providers.Base
 
   alias Expi.Types.{

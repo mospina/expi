@@ -40,8 +40,8 @@ defmodule Expi.Agent.Steering do
   - **Integration**: `coordinate_with_loop/3`, `update_processing_state/3`
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentEvent}
-  alias Expi.Agent.{State, Queue, Message, Events}
+  alias Expi.Agent.{Events, Message, Queue, State}
+  alias Expi.Agent.Types.{AgentEvent, AgentState}
 
   require Logger
 

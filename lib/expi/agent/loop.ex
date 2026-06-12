@@ -41,8 +41,8 @@ defmodule Expi.Agent.Loop do
   - Callback system for external integrations
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentEvent, AgentOptions}
-  alias Expi.Agent.{State, ToolExecutor, Events, Turn}
+  alias Expi.Agent.{Events, State, ToolExecutor, Turn}
+  alias Expi.Agent.Types.{AgentEvent, AgentOptions, AgentState}
   alias Expi.Types.{AssistantMessage, ToolCall}
 
   require Logger

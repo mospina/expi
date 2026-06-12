@@ -16,8 +16,8 @@ defmodule Expi.Agent.State do
   All functions are designed to be composable and work well with pipelines.
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentOptions, AgentTool}
   alias Expi.Agent.Message
+  alias Expi.Agent.Types.{AgentOptions, AgentState, AgentTool}
   alias Expi.Types.Model
 
   @type state_update :: (AgentState.t() -> AgentState.t())

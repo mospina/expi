@@ -6,8 +6,8 @@ defmodule Expi.Agent.Message do
   message types and provides utilities for working with agent messages.
   """
 
-  alias Expi.Types.{UserMessage, AssistantMessage, ToolResultMessage}
   alias Expi.Agent.Protocols.AgentMessage, as: AgentMessageProtocol
+  alias Expi.Types.{AssistantMessage, ToolResultMessage, UserMessage}
 
   @typedoc """
   Agent message type - union of all supported message types.

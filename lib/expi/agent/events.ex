@@ -31,8 +31,8 @@ defmodule Expi.Agent.Events do
   - Agent loops emit turn and lifecycle events
   """
 
-  alias Expi.Agent.Types.{AgentEvent, AgentState}
   alias Expi.Agent.Callbacks
+  alias Expi.Agent.Types.{AgentEvent, AgentState}
 
   require Logger
 

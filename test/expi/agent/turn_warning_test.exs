@@ -1,8 +1,8 @@
 defmodule Expi.Agent.TurnWarningTest do
   use ExUnit.Case, async: true
 
-  alias Expi.AI
   alias Expi.Agent.{State, Turn}
+  alias Expi.AI
 
   test "execute_turn extracts tool calls from streamed assistant responses" do
     {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")

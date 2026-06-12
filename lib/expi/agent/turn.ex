@@ -35,10 +35,10 @@ defmodule Expi.Agent.Turn do
   - Tool execution framework for tool call handling
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentEvent}
-  alias Expi.Agent.{State, MessageProcessor}
-  alias Expi.Types.{Context, AssistantMessage, ToolCall}
+  alias Expi.Agent.{MessageProcessor, State}
+  alias Expi.Agent.Types.{AgentEvent, AgentState}
   alias Expi.AI
+  alias Expi.Types.{AssistantMessage, Context, ToolCall}
 
   require Logger
 

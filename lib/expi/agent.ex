@@ -82,8 +82,8 @@ defmodule Expi.Agent do
   - **Advanced**: `run_with_queue/3`, `coordinate_processing/3`, `apply_transforms/2`
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentOptions}
-  alias Expi.Agent.{State, Loop, Queue, Steering, Message}
+  alias Expi.Agent.{Loop, Message, Queue, State, Steering}
+  alias Expi.Agent.Types.{AgentOptions, AgentState}
   alias Expi.Types.Model
 
   require Logger

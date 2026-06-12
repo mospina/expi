@@ -17,10 +17,10 @@ defmodule Expi.AI.IntegrationTest do
 
   alias Expi.Types.{
     Context,
-    UserMessage,
-    TextContent,
     ImageContent,
-    Tool
+    TextContent,
+    Tool,
+    UserMessage
   }
 
   @moduletag :integration

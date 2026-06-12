@@ -1,8 +1,8 @@
 defmodule Expi.Agent.LoopWarningTest do
   use ExUnit.Case, async: true
 
-  alias Expi.AI
   alias Expi.Agent.{Loop, Message, State}
+  alias Expi.AI
 
   test "should_continue? respects pending tools and queue state" do
     {:ok, model} = AI.get_model("anthropic", "claude-opus-4-5")

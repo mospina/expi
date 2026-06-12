@@ -23,9 +23,9 @@ defmodule Expi.Agent.MessageProcessor do
   5. **Output**: Clean message list ready for AI processing
   """
 
-  alias Expi.Agent.Types.{AgentState, AgentContext}
   alias Expi.Agent.{Message, State}
-  alias Expi.Types.{Context, UserMessage, AssistantMessage, ToolResultMessage}
+  alias Expi.Agent.Types.{AgentContext, AgentState}
+  alias Expi.Types.{AssistantMessage, Context, ToolResultMessage, UserMessage}
 
   @type conversion_result :: {:ok, [Expi.Types.message()]} | {:error, atom() | String.t()}
   @type pipeline_result :: {:ok, Context.t()} | {:error, atom() | String.t()}
