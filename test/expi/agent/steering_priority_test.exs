@@ -39,7 +39,10 @@ defmodule Expi.Agent.SteeringPriorityTest do
     steering = [message("steering")]
     follow_up = for index <- 1..11, do: message("follow up #{index}")
 
-    assert %{recommendation: :process_steering_first, reasoning: "Default to steering priority when both present"} =
+    assert %{
+             recommendation: :process_steering_first,
+             reasoning: "Default to steering priority when both present"
+           } =
              Steering.get_processing_priority(steering, follow_up)
   end
 

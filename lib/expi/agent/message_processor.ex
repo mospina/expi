@@ -463,16 +463,18 @@ defmodule Expi.Agent.MessageProcessor do
 
   @spec build_context(AgentState.t(), [Expi.Types.message()]) :: pipeline_result()
   defp build_context(%AgentState{} = state, llm_messages) do
-    with {:ok, llm_tools} <- convert_tools_to_llm(State.get_tools(state)) do
-      context = %Context{
-        system_prompt: state.system_prompt,
-        messages: llm_messages,
-        tools: llm_tools
-      }
+    case convert_tools_to_llm(State.get_tools(state)) do
+      {:ok, llm_tools} ->
+        context = %Context{
+          system_prompt: state.system_prompt,
+          messages: llm_messages,
+          tools: llm_tools
+        }
 
-      {:ok, context}
-    else
-      {:error, reason} -> {:error, reason}
+        {:ok, context}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

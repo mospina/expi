@@ -44,10 +44,16 @@ defmodule Expi.Agent.ToolResultWarningTest do
       tool_result("very_slow", 15_000)
     ]
 
-    grouped = ToolResult.aggregate_by_criteria(results, group_by: :execution_time, include_details: true)
+    grouped =
+      ToolResult.aggregate_by_criteria(results, group_by: :execution_time, include_details: true)
 
     assert Enum.map(grouped[:fast].results, & &1.tool_name) == ["fast"]
-    assert Enum.map(grouped[:medium].results, & &1.tool_name) |> Enum.sort() == ["medium", "medium_2"]
+
+    assert Enum.map(grouped[:medium].results, & &1.tool_name) |> Enum.sort() == [
+             "medium",
+             "medium_2"
+           ]
+
     assert Enum.map(grouped[:slow].results, & &1.tool_name) == ["slow"]
     assert Enum.map(grouped[:very_slow].results, & &1.tool_name) == ["very_slow"]
   end

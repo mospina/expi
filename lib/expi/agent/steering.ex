@@ -702,7 +702,8 @@ defmodule Expi.Agent.Steering do
           :process_steering_first | :process_follow_up_first | :process_together | :defer_all,
           String.t()
         }
-  defp determine_processing_recommendation([], [], _, _), do: {:defer_all, "No messages to process"}
+  defp determine_processing_recommendation([], [], _, _),
+    do: {:defer_all, "No messages to process"}
 
   defp determine_processing_recommendation(steering_messages, [], _, _)
        when steering_messages != [] do
@@ -714,17 +715,32 @@ defmodule Expi.Agent.Steering do
     {:process_follow_up_first, "Only follow-up messages present"}
   end
 
-  defp determine_processing_recommendation(_steering_messages, _follow_up_messages, steering_priority, follow_up_priority)
+  defp determine_processing_recommendation(
+         _steering_messages,
+         _follow_up_messages,
+         steering_priority,
+         follow_up_priority
+       )
        when steering_priority > follow_up_priority do
     {:process_steering_first, "Steering messages have higher priority"}
   end
 
-  defp determine_processing_recommendation(_steering_messages, _follow_up_messages, steering_priority, follow_up_priority)
+  defp determine_processing_recommendation(
+         _steering_messages,
+         _follow_up_messages,
+         steering_priority,
+         follow_up_priority
+       )
        when follow_up_priority > steering_priority do
     {:process_follow_up_first, "Follow-up messages have higher priority"}
   end
 
-  defp determine_processing_recommendation(steering_messages, follow_up_messages, _steering_priority, _follow_up_priority)
+  defp determine_processing_recommendation(
+         steering_messages,
+         follow_up_messages,
+         _steering_priority,
+         _follow_up_priority
+       )
        when steering_messages != [] and follow_up_messages != [] do
     {:process_steering_first, "Default to steering priority when both present"}
   end
